@@ -118,5 +118,80 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "tnum" 1, "ss01" 1;
   }
+}
+
+@layer utilities {
+  /* Custom scrollbar — slim, themed */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
+  }
+
+  /* Subtle inner-glow ring used by selected cards */
+  .ring-glow {
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--primary) 20%, transparent),
+      0 8px 32px -8px color-mix(in oklch, var(--primary) 25%, transparent);
+  }
+
+  /* Animated gradient border (used by KPI hero cards) */
+  .gradient-border {
+    position: relative;
+    background-clip: padding-box;
+  }
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, color-mix(in oklch, var(--primary) 35%, transparent), transparent 40%, color-mix(in oklch, var(--chart-2) 20%, transparent));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Shimmer placeholder for loading states */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--muted) 50%, transparent) 0%,
+      color-mix(in oklch, var(--muted) 80%, transparent) 50%,
+      color-mix(in oklch, var(--muted) 50%, transparent) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+/* Smooth scrolling for the dashboard */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Body font smoothing for crisper numerics */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

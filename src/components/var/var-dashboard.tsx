@@ -27,6 +27,9 @@ import { ModellabilityPanel } from "./modellability-panel";
 import { ConcentrationPanel } from "./concentration-panel";
 import { PerformancePanel } from "./performance-panel";
 import { WhatIfSimulatorPanel } from "./whatif-simulator-panel";
+import { OptimizerPanel } from "./optimizer-panel";
+import { CorrelationRegimePanel } from "./correlation-regime-panel";
+import { ExceptionDeepDivePanel } from "./exception-deepdive-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -105,6 +108,8 @@ export function VarDashboard() {
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-4/15 text-chart-4 border-chart-4/30">Concentration</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Sharpe</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-5/15 text-chart-5 border-chart-5/30">What-If</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Optimizer</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">Regimes</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-rose-500/15 text-rose-500 border-rose-500/30">Breach feed</Badge>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -169,64 +174,73 @@ export function VarDashboard() {
               <Section i={6}><McPathsPanel report={report} method={controls.method} /></Section>
             </div>
 
+            {/* Exception deep-dive (round 8) */}
+            <Section i={7}><ExceptionDeepDivePanel controls={controls} /></Section>
+
             {/* Decomposition + Stress */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={7}><DecompositionPanel report={report} /></Section>
-              <Section i={8}><StressPanel report={report} /></Section>
+              <Section i={8}><DecompositionPanel report={report} /></Section>
+              <Section i={9}><StressPanel report={report} /></Section>
             </div>
 
             <SectionDivider label="Stress & Attribution" hint="Reverse stress · PLA · scenario builder" />
 
             {/* Reverse stress + P&L attribution */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={9}><ReverseStressPanel report={report} controls={controls} /></Section>
-              <Section i={10}><PnlAttributionPanel report={report} /></Section>
+              <Section i={10}><ReverseStressPanel report={report} controls={controls} /></Section>
+              <Section i={11}><PnlAttributionPanel report={report} /></Section>
             </div>
 
             {/* Limit monitoring + Scenario builder (round 3) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={11}><LimitMonitoringPanel controls={controls} /></Section>
-              <Section i={12}><ScenarioBuilderPanel controls={controls} /></Section>
+              <Section i={12}><LimitMonitoringPanel controls={controls} /></Section>
+              <Section i={13}><ScenarioBuilderPanel controls={controls} /></Section>
             </div>
 
             {/* Breach feed + Utilization heatmap (round 4) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={13}><BreachFeedPanel /></Section>
-              <Section i={14}><UtilizationHeatmapPanel /></Section>
+              <Section i={14}><BreachFeedPanel /></Section>
+              <Section i={15}><UtilizationHeatmapPanel /></Section>
             </div>
 
-            <SectionDivider label="Advanced Analytics" hint="Greeks · NMRF · concentration · performance" />
+            <SectionDivider label="Advanced Analytics" hint="Greeks · NMRF · concentration · performance · regimes" />
 
             {/* Derivatives/Greeks + Historical VaR comparison (round 5) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={15}><DerivativesPanel /></Section>
-              <Section i={16}><HistoricalComparisonPanel /></Section>
+              <Section i={16}><DerivativesPanel /></Section>
+              <Section i={17}><HistoricalComparisonPanel /></Section>
             </div>
 
             {/* Modellability assessment (round 6) */}
-            <Section i={17}><ModellabilityPanel /></Section>
+            <Section i={18}><ModellabilityPanel /></Section>
 
             {/* Concentration + Performance (round 7) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={18}><ConcentrationPanel controls={controls} /></Section>
-              <Section i={19}><PerformancePanel controls={controls} /></Section>
+              <Section i={19}><ConcentrationPanel controls={controls} /></Section>
+              <Section i={20}><PerformancePanel controls={controls} /></Section>
             </div>
 
-            <SectionDivider label="Interactive Simulator" hint="live what-if weight rebalancing" />
+            {/* Correlation Regime Analysis (round 8) */}
+            <Section i={21}><CorrelationRegimePanel controls={controls} /></Section>
+
+            <SectionDivider label="Interactive Simulator" hint="live what-if weight rebalancing · portfolio optimizer" />
 
             {/* What-If Simulator (round 7) — full-width */}
-            <Section i={20}><WhatIfSimulatorPanel controls={controls} report={report} /></Section>
+            <Section i={22}><WhatIfSimulatorPanel controls={controls} report={report} /></Section>
+
+            {/* Portfolio Optimizer (round 8) — full-width */}
+            <Section i={23}><OptimizerPanel controls={controls} /></Section>
 
             <SectionDivider label="Market & Holdings" hint="reference data" />
 
             {/* Market + Portfolio */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={21}><MarketPanel market={market} /></Section>
-              <Section i={22}><PortfolioPanel report={report} /></Section>
+              <Section i={24}><MarketPanel market={market} /></Section>
+              <Section i={25}><PortfolioPanel report={report} /></Section>
             </div>
 
             {/* Methodology reference */}
-            <Section i={23}>
+            <Section i={26}>
               <MethodologyReference />
             </Section>
           </>
@@ -244,7 +258,7 @@ export function VarDashboard() {
           <div className="flex items-center gap-3 flex-wrap justify-center">
             <span>Parametric · Historical · Monte Carlo · Filtered HS · EVT</span>
             <span>·</span>
-            <span>L-VaR · PLA · Reverse stress · Greeks · NMRF · Concentration · Sharpe · What-If · Limit monitoring · Scenario builder · Breach feed · Heatmap · Historical comparison · Kupiec · Christoffersen · Basel III</span>
+            <span>L-VaR · PLA · Reverse stress · Greeks · NMRF · Concentration · Sharpe · What-If · Optimizer · Regimes · Exception deep-dive · Limit monitoring · Scenario builder · Breach feed · Heatmap · Historical comparison · Kupiec · Christoffersen · Basel III</span>
           </div>
         </div>
       </footer>
