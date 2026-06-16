@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { motion } from "framer-motion";
 import { useVarData } from "./use-var-data";
 import { ControlBar } from "./control-bar";
 import { KpiCards } from "./kpi-cards";
@@ -12,11 +13,32 @@ import { DecompositionPanel } from "./decomposition-panel";
 import { StressPanel } from "./stress-panel";
 import { MarketPanel } from "./market-panel";
 import { PortfolioPanel } from "./portfolio-panel";
+import { VarTrendPanel } from "./var-trend-panel";
+import { LiquidityPanel } from "./liquidity-panel";
+import { ReverseStressPanel } from "./reverse-stress-panel";
+import { PnlAttributionPanel } from "./pnl-attribution-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertCircle, Github, BookOpen } from "lucide-react";
+import { Activity, AlertCircle, BookOpen, Layers3 } from "lucide-react";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, delay: Math.min(i * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+  }),
+};
+
+function Section({ children, i }: { children: React.ReactNode; i: number }) {
+  return (
+    <motion.div custom={i} variants={fadeUp} initial="hidden" animate="show">
+      {children}
+    </motion.div>
+  );
+}
 
 export function VarDashboard() {
   const { report, market, loading, error, controls, setControls, lastUpdated } = useVarData();
@@ -41,6 +63,8 @@ export function VarDashboard() {
             <Badge variant="secondary" className="text-[10px] h-5">5 methodologies</Badge>
             <Badge variant="secondary" className="text-[10px] h-5">FRTB-aligned</Badge>
             <Badge variant="secondary" className="text-[10px] h-5">Basel backtest</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">L-VaR</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Reverse stress</Badge>
           </div>
           <div className="ml-auto flex items-center gap-2">
             {lastUpdated && (
@@ -61,9 +85,14 @@ export function VarDashboard() {
 
       <main className="flex-1 mx-auto max-w-[1400px] w-full px-4 md:px-6 py-5 space-y-4">
         {/* Control bar */}
-        <div className="rounded-xl border bg-card p-3 md:p-4">
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="rounded-xl border bg-card p-3 md:p-4 shadow-sm"
+        >
           <ControlBar controls={controls} setControls={setControls} onRefresh={refresh} loading={loading} />
-        </div>
+        </motion.div>
 
         {error && (
           <Alert variant="destructive">
@@ -78,34 +107,50 @@ export function VarDashboard() {
         ) : report ? (
           <>
             {/* KPI cards */}
-            <KpiCards report={report} method={controls.method} />
+            <Section i={0}>
+              <KpiCards report={report} method={controls.method} />
+            </Section>
 
             {/* Methodology comparison + P&L distribution */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <MethodologyComparison report={report} activeMethod={controls.method} />
-              <PnlDistribution report={report} method={controls.method} />
+              <Section i={1}><MethodologyComparison report={report} activeMethod={controls.method} /></Section>
+              <Section i={2}><PnlDistribution report={report} method={controls.method} /></Section>
+            </div>
+
+            {/* VaR Trend + Liquidity (FRTB) */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <Section i={3}><VarTrendPanel report={report} method={controls.method} /></Section>
+              <Section i={4}><LiquidityPanel report={report} /></Section>
             </div>
 
             {/* Backtest + MC paths */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <BacktestPanel report={report} method={controls.method} />
-              <McPathsPanel report={report} method={controls.method} />
+              <Section i={5}><BacktestPanel report={report} method={controls.method} /></Section>
+              <Section i={6}><McPathsPanel report={report} method={controls.method} /></Section>
             </div>
 
             {/* Decomposition + Stress */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <DecompositionPanel report={report} />
-              <StressPanel report={report} />
+              <Section i={7}><DecompositionPanel report={report} /></Section>
+              <Section i={8}><StressPanel report={report} /></Section>
+            </div>
+
+            {/* Reverse stress + P&L attribution */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <Section i={9}><ReverseStressPanel report={report} /></Section>
+              <Section i={10}><PnlAttributionPanel report={report} /></Section>
             </div>
 
             {/* Market + Portfolio */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <MarketPanel market={market} />
-              <PortfolioPanel report={report} />
+              <Section i={11}><MarketPanel market={market} /></Section>
+              <Section i={12}><PortfolioPanel report={report} /></Section>
             </div>
 
             {/* Methodology reference */}
-            <MethodologyReference />
+            <Section i={13}>
+              <MethodologyReference />
+            </Section>
           </>
         ) : null}
       </main>
@@ -118,10 +163,10 @@ export function VarDashboard() {
             <span>·</span>
             <span>Educational risk-model implementation — not investment advice.</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap justify-center">
             <span>Parametric · Historical · Monte Carlo · Filtered HS · EVT</span>
             <span>·</span>
-            <span>Kupiec · Christoffersen · Basel III</span>
+            <span>L-VaR · PLA · Reverse stress · Kupiec · Christoffersen · Basel III</span>
           </div>
         </div>
       </footer>
@@ -145,6 +190,10 @@ function LoadingState() {
         <Skeleton className="h-[460px] rounded-xl" />
         <Skeleton className="h-[460px] rounded-xl" />
       </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <Skeleton className="h-[460px] rounded-xl" />
+        <Skeleton className="h-[460px] rounded-xl" />
+      </div>
     </div>
   );
 }
@@ -159,13 +208,16 @@ function MethodologyReference() {
   ];
   return (
     <div className="rounded-xl border bg-card p-4">
-      <h3 className="text-sm font-semibold mb-1">Methodology Reference</h3>
+      <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
+        <Layers3 className="h-4 w-4 text-muted-foreground" />
+        Methodology Reference
+      </h3>
       <p className="text-[11px] text-muted-foreground mb-3">
         A robust risk framework reports a range of VaRs across methods — the spread itself is a measure of model risk. No single number should be trusted in isolation.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {refs.map((r) => (
-          <div key={r.name} className="rounded-lg border bg-muted/20 p-3">
+          <div key={r.name} className="rounded-lg border bg-muted/20 p-3 hover:bg-muted/30 transition-colors">
             <div className="text-xs font-semibold mb-1">{r.name}</div>
             <div className="text-[11px] text-muted-foreground leading-relaxed">{r.desc}</div>
           </div>
@@ -173,7 +225,7 @@ function MethodologyReference() {
         <div className="rounded-lg border bg-gradient-to-br from-rose-500/10 to-amber-500/10 p-3">
           <div className="text-xs font-semibold mb-1 text-rose-500">Complementary Measures</div>
           <div className="text-[11px] text-muted-foreground leading-relaxed">
-            VaR is never used alone. This engine also reports <span className="font-medium text-foreground">Expected Shortfall</span> (coherent, tail-shape aware, the FRTB metric), <span className="font-medium text-foreground">stress tests</span>, <span className="font-medium text-foreground">Greeks-style decomposition</span>, and <span className="font-medium text-foreground">backtesting</span> to form a complete risk picture.
+            VaR is never used alone. This engine also reports <span className="font-medium text-foreground">Expected Shortfall</span> (coherent, tail-shape aware, the FRTB metric), <span className="font-medium text-foreground">stress tests</span>, <span className="font-medium text-foreground">Greeks-style decomposition</span>, <span className="font-medium text-foreground">liquidity-adjusted VaR</span>, <span className="font-medium text-foreground">reverse stress</span>, <span className="font-medium text-foreground">P&amp;L attribution</span>, and <span className="font-medium text-foreground">backtesting</span> to form a complete risk picture.
           </div>
         </div>
       </div>

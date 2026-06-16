@@ -7,6 +7,10 @@ import { runVar } from "./methods";
 import { backtest } from "./backtest";
 import { decompose } from "./decomposition";
 import { runStress } from "./stress";
+import { computeVarTrend } from "./trend";
+import { computeLiquidityAdjustedVar } from "./liquidity";
+import { computeReverseStress } from "./reverse-stress";
+import { computePnlAttribution } from "./pla";
 
 export const DEFAULT_PORTFOLIO: PortfolioConfig = {
   totalValue: 10_000_000,
@@ -97,6 +101,12 @@ export function buildFullReport(
   // Stress testing.
   const stress = runStress(market, portfolio, confidence, horizon);
 
+  // New round-2 features.
+  const trend = computeVarTrend(market, portfolio, primaryMethod, confidence, 250, 250);
+  const liquidity = computeLiquidityAdjustedVar(market, portfolio, 0.975);
+  const reverseStress = computeReverseStress(market, portfolio, 0.20);
+  const pnlAttribution = computePnlAttribution(market, portfolio, 60);
+
   const positions = portfolio.positions.map((p, idx) => {
     const assetIdx = market.assets.findIndex((a) => a.symbol === p.symbol);
     const asset = market.assets[assetIdx];
@@ -124,6 +134,10 @@ export function buildFullReport(
     backtest: bt,
     decomposition: decomp,
     stress,
+    trend,
+    liquidity,
+    reverseStress,
+    pnlAttribution,
     generatedAt: new Date().toISOString(),
   };
 }

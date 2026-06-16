@@ -21,7 +21,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
-import { Plus, Trash2, RefreshCw, Settings2, Activity } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Settings2, Activity, Download } from "lucide-react";
 import type { VarControls } from "./use-var-data";
 import type { Methodology } from "@/lib/var/types";
 import { fmtUSD } from "@/lib/format";
@@ -236,6 +236,20 @@ export function ControlBar({
       <Button variant="default" className="h-9" onClick={onRefresh} disabled={loading}>
         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
         Recompute
+      </Button>
+
+      {/* Export CSV */}
+      <Button
+        variant="outline"
+        className="h-9"
+        onClick={() => {
+          const posStr = controls.positions.map((p) => `${p.symbol}:${p.quantity}`).join(",");
+          const url = `/api/var/export?confidence=${controls.confidence}&horizon=${controls.horizon}&method=${controls.method}&seed=${controls.seed}&totalValue=${controls.totalValue}&positions=${encodeURIComponent(posStr)}`;
+          window.open(url, "_blank");
+        }}
+      >
+        <Download className="h-4 w-4 mr-2" />
+        Export CSV
       </Button>
 
       <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">

@@ -108,3 +108,96 @@ Stage Summary:
   (marginal/component/incremental/standalone), 7 stress scenarios, correlation heatmap,
   MC path viz, interactive portfolio editor — all verified working.
 - Sticky footer confirmed; responsive from 390px → 1440px+.
+
+---
+Task ID: 11 (round 2 — cron review)
+Agent: main
+Task: QA pass + add 4 new features (VaR trend, L-VaR/FRTB, reverse stress, P&L attribution) + CSV export + styling polish.
+
+## Current project status (assessment)
+- Round 1 delivered a stable, production-ready VaR dashboard with 5 methodologies,
+  ES, backtesting (Kupiec/Christoffersen/Basel), decomposition, stress testing,
+  market panel, portfolio editor. Verified by VLM (all 12 sections PASS).
+- Fresh-load QA: 0 console errors, 0 lint errors, APIs healthy (~100-190ms).
+- No bugs found requiring immediate fix. Project was stable → proceeded to add
+  new features per the suggested roadmap.
+
+## Completed modifications (this round)
+
+### New backend modules
+- src/lib/var/trend.ts — computeVarTrend(): rolling 250-day VaR vs realized P&L
+  time series with procyclicality stats (mean/max/min VaR, VaR volatility, spike-day %).
+- src/lib/var/liquidity.ts — computeLiquidityAdjustedVar(): FRTB 97.5% ES scaled
+  across 5 liquidity horizons (10/20/40/60/120d) via sqrt-of-time, per-asset-class
+  horizon weighting (equity 10d, fx/commodity 20d, rate 40d, crypto 60d), aggregated
+  ES + regulatory capital (3.0× multiplier).
+- src/lib/var/reverse-stress.ts — computeReverseStress(): binary-search the uniform
+  shock intensity producing a target loss, with per-asset-class sensitivities
+  (equity/crypto/commodity fall, treasuries rally). Handles unreachable-ruin case
+  (bond hedge floors the book). Reports margin-to-ruin, sigma-event probability,
+  comparison to Lehman/COVID.
+- src/lib/var/pla.ts — computePnlAttribution(): FRTB P&L Attribution test comparing
+  risk-theoretical P&L (linear risk factors) vs hypothetical P&L (with convexity
+  residual). Spearman rank correlation + mean-abs-residual, traffic-light zone
+  (green ≥0.80 ρ & <10% residual; amber/red thresholds).
+- src/lib/var/types.ts — added VarTrend, LiquidityAdjustedVar, ReverseStressResult,
+  PnlAttribution types; extended FullReport with 4 new fields.
+- src/lib/var/engine.ts — wired all 4 new computations into buildFullReport().
+- src/app/api/var/export/route.ts — CSV export endpoint with all 8 report sections
+  (portfolio, methodologies, backtest, decomposition, stress, liquidity, reverse
+  stress, PLA, trend). Returns 7.7KB CSV in ~150ms.
+
+### New frontend panels
+- src/components/var/var-trend-panel.tsx — ComposedChart (VaR area + P&L area +
+  exception scatter) with mean-VaR reference line, 5 stat cards, procyclicality
+  risk badge (low/moderate/high).
+- src/components/var/liquidity-panel.tsx — gradient KPI cards (aggregated ES +
+  regulatory capital), bar chart of 5 FRTB horizons with ratio bars, FRTB MAR33 badge.
+- src/components/var/reverse-stress-panel.tsx — interactive target-loss slider
+  (5-80%, client-side linear interpolation), per-asset-class shock chart, Lehman/COVID
+  comparison, sigma-event probability, ruin-floor detection.
+- src/components/var/pnl-attribution-panel.tsx — RTPL vs HPL line chart + residual
+  scatter, Spearman ρ / mean-residual / window stat cards, PLA traffic-light badge.
+- src/components/var/control-bar.tsx — added Export CSV button (opens /api/var/export).
+- src/components/var/var-dashboard.tsx — wired 4 new panels into a 7-row grid;
+  added framer-motion fade-up animations on every section (staggered, custom delay);
+  added L-VaR + Reverse stress badges to header; expanded footer feature list;
+  hover transitions on methodology reference cards.
+
+## Verification results
+- Fresh reload: 0 console errors, 0 warnings.
+- ESLint: 0 errors.
+- DOM: 17 charts (was 13), 3 tables, 1 slider, all 9 sections present
+  (VaR Trend, Liquidity, Reverse Stress, P&L Attribution, Backtest, Decomposition,
+  Stress, Market Data, Portfolio Holdings).
+- VLM audit: all 4 new sections PASS (VaR Trend, Liquidity-Adjusted VaR FRTB,
+  Reverse Stress Testing, P&L Attribution PLA). No broken layouts, footer confirmed.
+- Slider interactivity: arrow-key changes value 20→35, chart updates client-side.
+- Mobile (390px): no horizontal overflow.
+- CSV export: 198 lines, 7.7KB, well-formatted with 8 sections.
+- API timing: report 184ms (132KB), export 157ms (7.7KB), market 5ms.
+- Realistic results: aggregated L-VaR ES $763K → regulatory capital $2.29M (23% of book);
+  reverse stress needs 59% equity drop for -20% portfolio loss (bond hedge floors ruin);
+  PLA Spearman ρ=0.998 (green zone, IMA retained).
+
+## Unresolved issues / risks
+- Reverse-stress slider uses client-side linear interpolation from the server-computed
+  20% baseline; for very different target losses (e.g. 80%) the linear approximation
+  diverges slightly from a true server recompute. Acceptable for interactivity; a future
+  enhancement could debounce-call the API for exact values.
+- PLA convexity residual uses a fixed gamma proxy (2% of delta); real desks would
+  derive this from actual option Greeks. Educational approximation only.
+- FRTB liquidity aggregation approximates the full per-risk-factor horizon mixing with
+  a portfolio-level asset-class-weighted combination.
+
+## Priority recommendations for next phase
+1. **Interactive Scenario Builder** — let users define custom shock matrices and
+   save them (persist via Prisma). High user value.
+2. **VaR Limit Monitoring** — set per-desk/per-trader VaR limits with breach alerts
+   and a limit-utilization gauge. Requires Prisma schema for limits.
+3. **Time-series VaR trend across methodologies** — overlay all 5 methods' rolling VaR
+   on one chart to visualize model divergence over time.
+4. **Derivatives with Greeks** — add option positions (delta-gamma-vega) and show
+   delta-gamma VaR approximation vs full-reval.
+5. **Reverse stress via API** — move the slider to a debounced API call for exact
+   non-linear recompute at any target loss.

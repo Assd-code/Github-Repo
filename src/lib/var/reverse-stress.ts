@@ -20,37 +20,46 @@ const CLASS_SENSITIVITY: Record<AssetClass, number> = {
   rate: 0.4, // treasuries rally (price up) in stress
 };
 
-/** Find the shock intensity (0..2) that produces the target loss fraction. */
+/** Find the shock intensity (0..maxIntensity) that produces the target loss fraction.
+ *  Returns the intensity, or null if the target loss is unreachable (e.g. the bond
+ *  hedge prevents the portfolio from ever reaching -100% under uniform stress). */
 function solveForIntensity(
   market: MarketData,
   weights: number[],
   marketValues: number[],
   totalValue: number,
-  targetLossFraction: number
-): number {
+  targetLossFraction: number,
+  maxIntensity: number = 10.0
+): number | null {
   const lastPrices = market.prices[market.prices.length - 1];
   const n = market.assets.length;
   const lossAtIntensity = (intensity: number) => {
     let pnl = 0;
     for (let i = 0; i < n; i++) {
       const ac = market.assets[i].assetClass;
-      // shock fraction of price: e.g. intensity 1.0, equity => price * (1 - 0.20) = -20%
       const shockPct = CLASS_SENSITIVITY[ac] * intensity * 0.20;
       const newPrice = lastPrices[i] * (1 + shockPct);
       pnl += (newPrice - lastPrices[i]) * (marketValues[i] / lastPrices[i]);
     }
-    return pnl; // negative = loss
+    return pnl;
   };
 
-  // Binary search: intensity 0 => 0 loss, intensity 2 => deep loss.
-  let lo = 0;
-  let hi = 3.0;
   const target = -targetLossFraction * totalValue;
-  for (let iter = 0; iter < 60; iter++) {
+  // Check reachability: even at maxIntensity, is the loss >= target?
+  const maxLoss = lossAtIntensity(maxIntensity);
+  if (maxLoss > target) {
+    // The portfolio can't reach the target loss even under extreme stress
+    // (e.g. strong bond hedge). Return null.
+    return null;
+  }
+
+  let lo = 0;
+  let hi = maxIntensity;
+  for (let iter = 0; iter < 80; iter++) {
     const mid = (lo + hi) / 2;
     const loss = lossAtIntensity(mid);
     if (loss > target) {
-      lo = mid; // not enough loss yet, increase intensity
+      lo = mid;
     } else {
       hi = mid;
     }
@@ -118,9 +127,14 @@ export function computeReverseStress(
   const oneInYears = probDaily > 0 ? (1 / probDaily / 252).toFixed(1) : "10000+";
   const probability = `~1-in-${oneInYears} years (≈ ${sigmaEvent.toFixed(1)}σ)`;
 
-  // Margin to ruin: intensity that wipes out the book (loss = -100%).
+  // Margin to ruin: how much further intensity (beyond the target-loss intensity)
+  // would wipe out the book (loss = -100%). If the portfolio cannot be fully wiped
+  // out under uniform stress (e.g. an unbreakable bond hedge), margin = 1 (unreachable).
   const ruinIntensity = solveForIntensity(market, weights, marketValues, portfolio.totalValue, 1.0);
-  const marginToRuin = (ruinIntensity - intensity) / ruinIntensity;
+  const marginToRuin =
+    ruinIntensity === null
+      ? 1.0 // ruin is unreachable — the book has an effective floor
+      : (ruinIntensity - intensity) / ruinIntensity;
 
   return {
     targetLossPct,
