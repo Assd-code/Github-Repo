@@ -390,3 +390,86 @@ Task: QA pass + add Breach Alert Feed, Utilization Heatmap, Reverse Stress via A
 4. **Reading pruning** — automatic TTL cleanup of VarReading rows older than N days.
 5. **Historical VaR comparison** — overlay today's VaR against the historical
    distribution of VaR estimates (where does today sit vs the 250-day range?).
+
+---
+Task ID: 14 (round 5 — cron review)
+Agent: main
+Task: QA pass + add Derivatives with Greeks, Historical VaR Comparison, Scenario Import/Export + styling polish.
+
+## Current project status (assessment)
+- Rounds 1-4 delivered a stable dashboard with 5 VaR methodologies, ES, backtesting,
+  decomposition, stress testing, VaR trend (multi-method overlay), L-VaR (FRTB),
+  reverse stress (API-debounced), P&L attribution, limit monitoring, scenario builder,
+  breach feed, utilization heatmap, CSV export. VLM-verified all sections PASS.
+- Fresh-load QA: 0 console errors, 0 hydration warnings, 0 lint errors.
+  18 charts, 4 tables, 8 sliders, all 13 sections present.
+- No bugs found. Project was stable → proceeded to add new features.
+
+## Completed modifications (this round)
+
+### New backend modules
+- src/lib/var/derivatives.ts — Black-Scholes option pricing (bsPrice, bsGreeks for
+  delta/gamma/vega/theta/rho). computeDerivativesAnalysis(): prices 3 default option
+  positions (SPX call, AAPL put, BTC short call) with ATM strikes dynamically set from
+  current spot. Computes portfolio-aggregated Greeks, VaR comparison (delta-only vs
+  delta-gamma vs full-revaluation via bootstrap), and sensitivity table (P&L for ±N%
+  moves in each underlying).
+- src/lib/var/historical-comparison.ts — computeHistoricalVarComparison(): 150-day
+  rolling VaR series with distribution statistics (mean/median/p5/p25/p75/p95/min/max/std),
+  current VaR percentile rank, regime classification (low/normal/elevated/high), and
+  distribution histogram with current-VaR bin highlighted.
+
+### New API routes
+- src/app/api/var/derivatives/route.ts — GET (default options) + POST (custom options).
+- src/app/api/var/historical-comparison/route.ts — GET with method/confidence/portfolio params.
+- src/app/api/var/scenarios/route.ts — added "import" action for bulk JSON scenario import.
+
+### New frontend panels
+- src/components/var/derivatives-panel.tsx — 5 Greek stat cards (delta/gamma/vega/theta/rho),
+  VaR method comparison bar chart (delta-only vs delta-gamma vs full-reval), option positions
+  table (11 columns: symbol/type/qty/strike/mat/IV/delta/gamma/vega/price/MV), P&L sensitivity
+  line chart (full revaluation across ±20% moves), gamma-adjustment badge.
+- src/components/var/historical-comparison-panel.tsx — gradient KPI cards (today's VaR +
+  percentile rank), histogram with current-VaR reference line + highlighted bin, 4-stat
+  distribution panel (P5/median/P95/std), regime badge (low/normal/elevated/high).
+- src/components/var/scenario-builder-panel.tsx — added Import (JSON file upload) and
+  Export (JSON download) buttons for scenario library portability.
+
+### Dashboard wiring
+- src/components/var/var-dashboard.tsx — wired DerivativesPanel + HistoricalComparisonPanel
+  into new grid row. Added "Greeks" badge to header. Updated footer feature list.
+
+## Verification results
+- Fresh reload: 0 console errors, 0 hydration warnings.
+- ESLint: 0 errors (fixed JSX parsing error: `< 25th` → `below 25th`).
+- DOM: 24 charts (was 18), 5 tables, 8 sliders.
+- All 15 sections present: VaR Trend, Liquidity, Reverse Stress, P&L Attribution, Limit
+  Monitoring, Scenario Builder, Breach Feed, Utilization Heatmap, Derivatives & Greeks,
+  Historical VaR Comparison, Backtest, Decomposition, Stress, Market Data, Portfolio.
+- VLM audit: all sections PASS, no broken layouts, footer at bottom.
+- Derivatives: 3 option positions with correct Greeks (SPX call delta 0.572, gamma 0.0025;
+  AAPL put delta -0.283; BTC short call delta 0.263). VaR comparison: delta-only $286K,
+  delta-gamma $215K (gamma adj -24.6%), full-reval $210K — gamma correctly reduces risk
+  for the short call position.
+- Historical comparison: current VaR $279K at 50th percentile, "normal" regime, histogram
+  highlights the current bin.
+- Scenario import/export: both buttons present, export downloads JSON, import accepts JSON.
+- Mobile (390px): no horizontal overflow.
+- API timing: report 1.0s, derivatives 17ms, historical 40ms.
+
+## Unresolved issues / risks
+- Default option positions use 3 hardcoded specs (SPX/AAPL/BTC); a production system would
+  let users add/edit option positions via the UI (currently API-only).
+- Vega is quoted per 1.00 (100 percentage points) vol change in Black-Scholes; the display
+  divides by 100 for "per 1% vol" convention — clearly labeled.
+- Historical comparison recomputes 150 rolling VaR estimates (no caching); takes ~40ms
+  which is acceptable.
+
+## Priority recommendations for next phase
+1. **Option position editor UI** — let users add/edit/remove option positions interactively
+   (currently uses hardcoded defaults). The API already accepts custom positions via POST.
+2. **VaR breach email/webhook alerts** — configurable alert routing when a reading breaches.
+3. **Reading pruning** — automatic TTL cleanup of VarReading rows older than N days.
+4. **Multi-portfolio support** — save/load named portfolios (currently single portfolio).
+5. **Risk factor modellability assessment** — FRTB NMRF identification based on data
+   availability per risk factor.

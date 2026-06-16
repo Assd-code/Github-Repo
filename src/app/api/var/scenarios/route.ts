@@ -80,6 +80,23 @@ export async function POST(req: NextRequest) {
       }, confidence, horizon);
       return NextResponse.json({ ok: true, result });
     }
+    if (body.action === "import") {
+      // Bulk import scenarios from a JSON array.
+      const scenarios: CustomScenario[] = body.scenarios || [];
+      const saved = [];
+      for (const s of scenarios) {
+        if (s.name && s.shocks) {
+          const result = await saveScenario({
+            name: s.name,
+            description: s.description || "",
+            type: "custom",
+            shocks: s.shocks,
+          });
+          saved.push(result);
+        }
+      }
+      return NextResponse.json({ ok: true, imported: saved.length, scenarios: saved });
+    }
     return NextResponse.json({ ok: false, error: "unknown action" }, { status: 400 });
   } catch (err) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "unknown error" }, { status: 500 });

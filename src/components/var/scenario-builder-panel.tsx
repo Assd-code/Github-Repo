@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList,
 } from "recharts";
 import {
-  FlaskConical, Save, Play, Trash2, AlertOctagon, CheckCircle2, Wand2,
+  FlaskConical, Save, Play, Trash2, AlertOctagon, CheckCircle2, Wand2, Download, Upload,
 } from "lucide-react";
 import type { VarControls } from "./use-var-data";
 import type { CustomScenarioResult, AssetClass } from "@/lib/var/types";
@@ -121,6 +121,42 @@ export function ScenarioBuilderPanel({ controls }: { controls: VarControls }) {
     await loadSaved();
   };
 
+  const exportScenarios = () => {
+    const data = JSON.stringify(saved.map((s) => ({
+      name: s.scenario.name,
+      description: s.scenario.description,
+      shocks: s.scenario.shocks,
+    })), null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `var-scenarios-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importScenarios = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const scenarios = JSON.parse(text);
+      if (!Array.isArray(scenarios)) throw new Error("Expected a JSON array");
+      const res = await fetch("/api/var/scenarios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "import", scenarios }),
+      }).then((r) => r.json());
+      if (res.ok) {
+        await loadSaved();
+      }
+    } catch {
+      // invalid JSON — silently ignore
+    }
+    e.target.value = "";
+  };
+
   const applyPreset = (s: SavedScenarioItem) => {
     setShocks(normalizeShocks(s.scenario.shocks, assets));
     setActiveResult(s.result);
@@ -164,7 +200,7 @@ export function ScenarioBuilderPanel({ controls }: { controls: VarControls }) {
               Define custom shock matrices · save & re-run scenarios · {saved.length} saved
             </CardDescription>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => applyQuickPreset("neutral")}>
               <Wand2 className="h-3 w-3 mr-1" /> Neutral
             </Button>
@@ -174,6 +210,13 @@ export function ScenarioBuilderPanel({ controls }: { controls: VarControls }) {
             <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-500" onClick={() => applyQuickPreset("rally")}>
               <Wand2 className="h-3 w-3 mr-1" /> Rally
             </Button>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={exportScenarios} disabled={saved.length === 0} title="Export saved scenarios as JSON">
+              <Download className="h-3 w-3 mr-1" /> Export
+            </Button>
+            <label className="inline-flex items-center gap-1 text-xs cursor-pointer rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground h-7 px-2.5" title="Import scenarios from JSON">
+              <Upload className="h-3 w-3" /> Import
+              <input type="file" accept=".json,application/json" onChange={importScenarios} className="hidden" />
+            </label>
           </div>
         </div>
       </CardHeader>

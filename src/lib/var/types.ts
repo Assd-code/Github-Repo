@@ -363,3 +363,97 @@ export interface CustomScenarioResult {
   bestContributor: { symbol: string; pnl: number };
 }
 
+// ---- New feature types (round 5) ----
+
+/** An option position with Greeks for delta-gamma VaR. */
+export interface OptionPosition {
+  symbol: string;
+  /** underlying asset symbol (must exist in market.assets) */
+  underlying: string;
+  /** "call" | "put" */
+  type: "call" | "put";
+  /** "long" | "short" */
+  direction: "long" | "short";
+  /** number of contracts (each on `contractSize` units of underlying) */
+  quantity: number;
+  /** contract size (e.g. 100 for standard equity options) */
+  contractSize: number;
+  /** strike price */
+  strike: number;
+  /** time to maturity in years */
+  maturity: number;
+  /** implied volatility (annualized, decimal) */
+  impliedVol: number;
+  /** risk-free rate (annualized, decimal) */
+  riskFreeRate: number;
+}
+
+/** Greeks for a single option position. */
+export interface Greeks {
+  delta: number;
+  gamma: number;
+  vega: number;
+  theta: number;
+  rho: number;
+  /** the option's theoretical price */
+  price: number;
+}
+
+/** Result of the derivatives/Greeks analysis. */
+export interface DerivativesAnalysis {
+  positions: (OptionPosition & {
+    greeks: Greeks;
+    /** market value of the position (price * qty * contractSize) */
+    marketValue: number;
+    /** notional exposure = delta * qty * contractSize * spot */
+    notionalDelta: number;
+  })[];
+  /** portfolio-aggregated Greeks */
+  portfolioGreeks: {
+    delta: number;
+    gamma: number;
+    vega: number;
+    theta: number;
+    rho: number;
+  };
+  /** VaR comparison: linear (delta-only) vs delta-gamma approximation vs full-reval */
+  varComparison: {
+    deltaOnly: number;
+    deltaGamma: number;
+    fullReval: number;
+    /** the gamma adjustment as % of delta-only VaR */
+    gammaAdjustPct: number;
+  };
+  /** sensitivity table: P&L for ±N% moves in each underlying */
+  sensitivities: {
+    underlying: string;
+    moves: { pct: number; deltaPnl: number; deltaGammaPnl: number; fullPnl: number }[];
+  }[];
+}
+
+/** Historical VaR comparison: where does today's VaR sit vs the 250-day distribution? */
+export interface HistoricalVarComparison {
+  methodology: Methodology;
+  confidence: number;
+  /** today's VaR (the current estimate) */
+  currentVar: number;
+  /** statistics over the rolling VaR series */
+  stats: {
+    mean: number;
+    median: number;
+    p5: number;
+    p25: number;
+    p75: number;
+    p95: number;
+    min: number;
+    max: number;
+    std: number;
+  };
+  /** percentile of current VaR within the historical distribution (0-100) */
+  currentPercentile: number;
+  /** interpretation: "low" / "normal" / "elevated" / "high" */
+  regime: "low" | "normal" | "elevated" | "high";
+  /** distribution histogram for charting */
+  histogram: { x: number; count: number; isCurrent: boolean }[];
+}
+
