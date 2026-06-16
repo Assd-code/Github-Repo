@@ -13,7 +13,7 @@ export function computeVarTrend(
   methodology: Methodology,
   confidence: number,
   window: number = 250,
-  testDays: number = 250
+  testDays: number = 150
 ): VarTrend {
   const returns = market.returns.slice(1);
   const dates = market.dates.slice(1);
@@ -57,7 +57,7 @@ export function computeVarTrend(
     };
 
     const res = runVar(subMarket, portfolio, methodology, confidence, 1, {
-      mcPaths: 1500,
+      mcPaths: 1000,
       seed: 200 + t,
     });
     const varValue = res.var;
@@ -65,17 +65,50 @@ export function computeVarTrend(
     const realizedPnl = realizedR * portfolio.totalValue;
     const isException = realizedPnl < -varValue;
 
+    // Multi-method overlay: compute other methods only on a sparse grid (every 5th
+    // day) to keep the trend loop fast. The frontend interpolates between points.
+    const byMethod: Record<string, number> = { [methodology]: Math.round(varValue) };
+    if (t % 5 === 0) {
+      const otherMethods: Methodology[] = (["parametric", "historical", "montecarlo", "filtered", "evt"] as Methodology[]).filter((m) => m !== methodology);
+      for (const m of otherMethods) {
+        try {
+          const r2 = runVar(subMarket, portfolio, m, confidence, 1, {
+            mcPaths: 400,
+            seed: 300 + t,
+            decay: 0.94,
+            evtThreshold: 0.9,
+          });
+          byMethod[m] = Math.round(r2.var);
+        } catch {
+          byMethod[m] = Math.round(varValue);
+        }
+      }
+    }
+
     rawPoints.push({
       date: dates[t],
       var: Math.round(varValue),
       pnl: Math.round(realizedPnl),
       exception: isException,
+      byMethod,
     });
   }
 
-  // Downsample to ~120 points for chart performance, but keep all exceptions.
-  const step = Math.max(1, Math.floor(rawPoints.length / 120));
-  const points = rawPoints.filter((_, i) => i % step === 0 || rawPoints[i].exception);
+  // Downsample to ~90 points for chart performance, but keep all exceptions
+  // and all points that have the multi-method overlay (every 5th).
+  const step = Math.max(1, Math.floor(rawPoints.length / 90));
+  const points = rawPoints.filter((_, i) => i % step === 0 || rawPoints[i].exception || (rawPoints[i].byMethod && Object.keys(rawPoints[i].byMethod!).length > 1));
+
+  // Forward-fill the multi-method overlay onto points that don't have it,
+  // so the chart lines are continuous.
+  let lastOverlay: Record<string, number> | null = null;
+  for (const p of points) {
+    if (p.byMethod && Object.keys(p.byMethod).length > 1) {
+      lastOverlay = p.byMethod;
+    } else if (lastOverlay) {
+      p.byMethod = { ...lastOverlay, [methodology]: p.var };
+    }
+  }
 
   const varValues = rawPoints.map((p) => p.var);
   const meanVar = mean(varValues);

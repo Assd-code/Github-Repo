@@ -101,8 +101,8 @@ export function buildFullReport(
   // Stress testing.
   const stress = runStress(market, portfolio, confidence, horizon);
 
-  // New round-2 features.
-  const trend = computeVarTrend(market, portfolio, primaryMethod, confidence, 250, 250);
+  // New round-2/3 features.
+  const trend = computeVarTrend(market, portfolio, primaryMethod, confidence, 250, 150);
   const liquidity = computeLiquidityAdjustedVar(market, portfolio, 0.975);
   const reverseStress = computeReverseStress(market, portfolio, 0.20);
   const pnlAttribution = computePnlAttribution(market, portfolio, 60);

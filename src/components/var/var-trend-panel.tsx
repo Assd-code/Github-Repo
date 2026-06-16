@@ -15,7 +15,8 @@ import {
   ReferenceLine,
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Activity, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, Activity, Zap, Layers } from "lucide-react";
 import type { FullReport, Methodology } from "@/lib/var/types";
 import { fmtUSD, fmtPct, fmtDate } from "@/lib/format";
 
@@ -27,6 +28,14 @@ const METHOD_LABEL: Record<Methodology, string> = {
   evt: "EVT",
 };
 
+const METHOD_COLOR: Record<Methodology, string> = {
+  parametric: "var(--chart-3)",
+  historical: "var(--chart-1)",
+  montecarlo: "var(--chart-2)",
+  filtered: "var(--chart-5)",
+  evt: "var(--chart-4)",
+};
+
 export function VarTrendPanel({
   report,
   method,
@@ -35,11 +44,20 @@ export function VarTrendPanel({
   method: Methodology;
 }) {
   const t = report.trend;
+  const [showOverlay, setShowOverlay] = React.useState(false);
+  const allMethods: Methodology[] = ["parametric", "historical", "montecarlo", "filtered", "evt"];
+  const hasOverlay = t.points.some((p) => p.byMethod && Object.keys(p.byMethod).length > 1);
+
   const data = t.points.map((p) => ({
     date: fmtDate(p.date),
     var: p.var,
     pnl: p.pnl,
     exception: p.exception ? p.pnl : null,
+    parametric: p.byMethod?.parametric,
+    historical: p.byMethod?.historical,
+    montecarlo: p.byMethod?.montecarlo,
+    filtered: p.byMethod?.filtered,
+    evt: p.byMethod?.evt,
   }));
 
   const procyclicalityRisk =
@@ -60,10 +78,23 @@ export function VarTrendPanel({
               Rolling 250-day {METHOD_LABEL[method]} VaR vs. realized P&amp;L over {t.window} trading days
             </CardDescription>
           </div>
-          <Badge variant="outline" className={procColor}>
-            <Zap className="h-3 w-3 mr-1" />
-            {procyclicalityRisk} procyclicality
-          </Badge>
+          <div className="flex items-center gap-2">
+            {hasOverlay && (
+              <Button
+                variant={showOverlay ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setShowOverlay((v) => !v)}
+              >
+                <Layers className="h-3 w-3 mr-1" />
+                {showOverlay ? "Hide" : "Show"} all methods
+              </Button>
+            )}
+            <Badge variant="outline" className={procColor}>
+              <Zap className="h-3 w-3 mr-1" />
+              {procyclicalityRisk} procyclicality
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -93,6 +124,21 @@ export function VarTrendPanel({
               <Area dataKey="var" name="var" stroke="var(--chart-1)" strokeWidth={1.5} fill="url(#varGrad)" />
               <Area dataKey="pnl" name="pnl" stroke="var(--chart-2)" strokeWidth={1} fill="url(#pnlGradTrend)" />
               <Scatter dataKey="exception" name="exception" fill="var(--chart-1)" fillOpacity={0.9} />
+              {showOverlay && hasOverlay && allMethods
+                .filter((m) => m !== method)
+                .map((m) => (
+                  <Line
+                    key={m}
+                    type="monotone"
+                    dataKey={m}
+                    name={m}
+                    stroke={METHOD_COLOR[m]}
+                    strokeWidth={1}
+                    strokeDasharray="3 2"
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                ))}
             </ComposedChart>
           </ResponsiveContainer>
         </div>

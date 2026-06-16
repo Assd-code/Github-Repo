@@ -214,6 +214,8 @@ export interface VarTrendPoint {
   pnl: number;
   /** whether the day was a backtest exception */
   exception: boolean;
+  /** VaR estimate per methodology at that point (round 3 multi-method overlay) */
+  byMethod?: Record<string, number>;
 }
 
 export interface VarTrend {
@@ -301,3 +303,63 @@ export interface PnlAttribution {
   /** explanation */
   notes: string;
 }
+
+// ---- New feature types (round 3) ----
+
+/** A VaR limit definition (persisted in the database). */
+export interface VarLimitDef {
+  id: string;
+  scope: string;
+  label: string;
+  method: Methodology;
+  confidence: number;
+  horizon: number;
+  limitUsd: number;
+  softLimitUsd: number | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Live VaR-vs-limit monitoring result. */
+export interface LimitMonitoring {
+  limits: VarLimitDef[];
+  /** the live VaR computed with each limit's method/confidence/horizon */
+  readings: {
+    limit: VarLimitDef;
+    var: number;
+    es: number;
+    /** var / limitUsd — 1.0 means at the hard limit */
+    utilization: number;
+    /** "ok" | "warning" (above soft) | "breach" (above hard) */
+    status: "ok" | "warning" | "breach";
+    headroomUsd: number;
+  }[];
+  /** overall worst status across all active limits */
+  worstStatus: "ok" | "warning" | "breach";
+  breachCount: number;
+  warningCount: number;
+}
+
+/** A user-defined custom stress scenario (persisted). */
+export interface CustomScenario {
+  id?: string;
+  name: string;
+  description: string;
+  type: "custom";
+  shocks: Record<string, number>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Result of running a custom scenario against the portfolio. */
+export interface CustomScenarioResult {
+  name: string;
+  pnl: number;
+  pnlPct: number;
+  breachesVar: boolean;
+  perAsset: { symbol: string; name: string; shock: number; pnl: number; assetClass: AssetClass }[];
+  worstContributor: { symbol: string; pnl: number };
+  bestContributor: { symbol: string; pnl: number };
+}
+

@@ -17,6 +17,8 @@ import { VarTrendPanel } from "./var-trend-panel";
 import { LiquidityPanel } from "./liquidity-panel";
 import { ReverseStressPanel } from "./reverse-stress-panel";
 import { PnlAttributionPanel } from "./pnl-attribution-panel";
+import { LimitMonitoringPanel } from "./limit-monitoring-panel";
+import { ScenarioBuilderPanel } from "./scenario-builder-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -33,6 +35,11 @@ const fadeUp = {
 };
 
 function Section({ children, i }: { children: React.ReactNode; i: number }) {
+  // Only animate after mount to avoid SSR/CSR hydration mismatch from
+  // framer-motion setting inline styles (opacity:0) on the server.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  if (!mounted) return <div>{children}</div>;
   return (
     <motion.div custom={i} variants={fadeUp} initial="hidden" animate="show">
       {children}
@@ -65,10 +72,11 @@ export function VarDashboard() {
             <Badge variant="secondary" className="text-[10px] h-5">Basel backtest</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">L-VaR</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Reverse stress</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-4/15 text-chart-4 border-chart-4/30">Limit monitor</Badge>
           </div>
           <div className="ml-auto flex items-center gap-2">
             {lastUpdated && (
-              <span className="hidden sm:inline text-[11px] text-muted-foreground tabular-nums">
+              <span className="hidden sm:inline text-[11px] text-muted-foreground tabular-nums" suppressHydrationWarning>
                 Updated {new Date(lastUpdated).toLocaleTimeString()}
               </span>
             )}
@@ -85,14 +93,11 @@ export function VarDashboard() {
 
       <main className="flex-1 mx-auto max-w-[1400px] w-full px-4 md:px-6 py-5 space-y-4">
         {/* Control bar */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+        <div
           className="rounded-xl border bg-card p-3 md:p-4 shadow-sm"
         >
           <ControlBar controls={controls} setControls={setControls} onRefresh={refresh} loading={loading} />
-        </motion.div>
+        </div>
 
         {error && (
           <Alert variant="destructive">
@@ -141,14 +146,20 @@ export function VarDashboard() {
               <Section i={10}><PnlAttributionPanel report={report} /></Section>
             </div>
 
+            {/* Limit monitoring + Scenario builder (round 3) */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <Section i={11}><LimitMonitoringPanel controls={controls} /></Section>
+              <Section i={12}><ScenarioBuilderPanel controls={controls} /></Section>
+            </div>
+
             {/* Market + Portfolio */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={11}><MarketPanel market={market} /></Section>
-              <Section i={12}><PortfolioPanel report={report} /></Section>
+              <Section i={13}><MarketPanel market={market} /></Section>
+              <Section i={14}><PortfolioPanel report={report} /></Section>
             </div>
 
             {/* Methodology reference */}
-            <Section i={13}>
+            <Section i={15}>
               <MethodologyReference />
             </Section>
           </>
@@ -166,7 +177,7 @@ export function VarDashboard() {
           <div className="flex items-center gap-3 flex-wrap justify-center">
             <span>Parametric · Historical · Monte Carlo · Filtered HS · EVT</span>
             <span>·</span>
-            <span>L-VaR · PLA · Reverse stress · Kupiec · Christoffersen · Basel III</span>
+            <span>L-VaR · PLA · Reverse stress · Limit monitoring · Scenario builder · Kupiec · Christoffersen · Basel III</span>
           </div>
         </div>
       </footer>

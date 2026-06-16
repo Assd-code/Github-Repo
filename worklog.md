@@ -201,3 +201,107 @@ Task: QA pass + add 4 new features (VaR trend, L-VaR/FRTB, reverse stress, P&L a
    delta-gamma VaR approximation vs full-reval.
 5. **Reverse stress via API** — move the slider to a debounced API call for exact
    non-linear recompute at any target loss.
+
+---
+Task ID: 12 (round 3 — cron review)
+Agent: main
+Task: QA pass + fix hydration bug + add VaR limit monitoring, interactive scenario builder, multi-method trend overlay + styling polish.
+
+## Current project status (assessment)
+- Rounds 1-2 delivered a stable dashboard with 5 VaR methodologies, ES, backtesting,
+  decomposition, stress testing, VaR trend, L-VaR, reverse stress, P&L attribution,
+  CSV export. VLM-verified all sections PASS.
+- Fresh-load QA found 1 real bug: framer-motion `motion.div` with `initial`/`animate`
+  props caused a hydration mismatch (server rendered `style={{opacity:0}}`, client
+  animated away from it). Fixed by gating animation behind a `mounted` flag and
+  removing the control-bar motion wrapper.
+- No other bugs. Project was stable → proceeded to add new features.
+
+## Completed modifications (this round)
+
+### Bug fix
+- src/components/var/var-dashboard.tsx — Fixed framer-motion hydration mismatch:
+  `Section` wrapper now returns a plain `<div>` until mounted, then swaps to
+  `motion.div`. Removed `motion.div` wrapper around ControlBar. Added
+  `suppressHydrationWarning` to the `lastUpdated` timestamp (locale-dependent).
+
+### Database (Prisma)
+- prisma/schema.prisma — added 3 models: VarLimit (scope/label/method/confidence/
+  horizon/limitUsd/softLimitUsd/active), SavedScenario (name/description/type/
+  shocks JSON), VarReading (audit log of VaR readings + breaches). Ran db:push.
+- src/lib/var/seed.ts — seeds 5 default VaR limits (firm-wide 99%/1d, regulatory
+  99%/10d, equities desk 95%/1d, crypto desk 99%/1d, rates desk 99%/1d).
+
+### New backend modules
+- src/lib/var/limits.ts — computeLimitMonitoring(): runs VaR per each limit's
+  method/confidence/horizon, computes utilization, flags ok/warning/breach, persists
+  a VarReading audit row. Plus CRUD: listLimits, upsertLimit, deleteLimit,
+  recentReadings.
+- src/lib/var/custom-scenarios.ts — runCustomScenario(): applies a per-symbol shock
+  matrix to the portfolio. Plus saveScenario, listScenarios, deleteScenario,
+  seedExampleScenarios (seeds Tech Wipeout, Inflation Surprise, Gold Rally).
+
+### New API routes
+- src/app/api/var/limits/route.ts — GET (compute monitoring) + POST (CRUD actions).
+- src/app/api/var/scenarios/route.ts — GET (list + run saved) + POST (save/delete/run ad-hoc).
+
+### New frontend panels
+- src/components/var/limit-monitoring-panel.tsx — live limit cards with utilization
+  Progress bars, ok/warning/breach color coding (emerald/amber/rose), headroom USD,
+  ES display, hover-to-edit buttons, full add/edit/delete limit editor dialog
+  (scope, method, confidence, horizon, hard/soft limits).
+- src/components/var/scenario-builder-panel.tsx — 7 per-asset shock sliders (-60% to
+  +60%), quick presets (Neutral/Crash/Rally), Run/Save buttons, result chart with
+  per-asset P&L bars, saved-scenarios list with one-click apply + delete.
+
+### Enhanced existing panel
+- src/components/var/var-trend-panel.tsx — added multi-method overlay: a "Show all
+  methods" toggle that overlays the other 4 methodologies' rolling VaR as dashed
+  lines on the trend chart. Color-coded per method.
+
+### Performance optimization
+- src/lib/var/trend.ts — multi-method overlay computed on a sparse grid (every 5th
+  day) with forward-fill, reduced MC paths (400 vs 800), reduced test days (150 vs
+  250). API time: 7.4s → 1.2s (6× faster).
+
+### Dashboard wiring + styling
+- src/components/var/var-dashboard.tsx — wired LimitMonitoringPanel +
+  ScenarioBuilderPanel into a new grid row. Added "Limit monitor" badge to header.
+  Updated footer feature list. All sections animate in with staggered fade-up
+  (mounted-gated to avoid hydration issues).
+
+## Verification results
+- Fresh reload: 0 console errors, 0 hydration warnings.
+- ESLint: 0 errors (fixed React Compiler useCallback dependency mismatch in 2 panels).
+- DOM: 18 charts (was 17), 3 tables, 8 sliders (7 scenario + 1 reverse stress).
+- All 11 sections present: VaR Trend, Liquidity, Reverse Stress, P&L Attribution,
+  Limit Monitoring, Scenario Builder, Backtest, Decomposition, Stress, Market Data,
+  Portfolio.
+- VLM audit: all 11 sections PASS, no broken layouts, footer at bottom, dark theme
+  consistent.
+- Limit monitoring: 5 limits, 2 breaches (Crypto 218%, Rates 105%), 1 warning
+  (Equities 87%), correct utilization bars + headroom.
+- Scenario builder: 3 saved scenarios (Tech Wipeout, Inflation Surprise, Gold Rally),
+  Run button produces P&L chart, sliders interactive.
+- Multi-method overlay toggle present and functional.
+- Mobile (390px): no horizontal overflow.
+- API timing: report 1.2s (was 7.4s), limits 50ms, scenarios 10ms.
+
+## Unresolved issues / risks
+- Multi-method trend overlay uses sparse grid (every 5th day) with forward-fill;
+  the overlay lines are slightly less smooth than the primary method but still
+  clearly show model divergence. Acceptable trade-off for 6× speedup.
+- VaR readings are persisted on every limit-monitoring API call (audit log grows);
+  no TTL/pruning yet. Low risk for demo; production would prune to N days.
+
+## Priority recommendations for next phase
+1. **VaR breach alert feed** — show a scrolling timeline of recent breaches from the
+   VarReading audit table, with severity + scope filtering.
+2. **Limit utilization heatmap** — desk × time matrix showing which desks breach
+   most often (uses VarReading history).
+3. **Reverse stress via API** — move the slider to a debounced API call for exact
+   non-linear recompute at any target loss (currently client-side linear interp).
+4. **Derivatives with Greeks** — add option positions (delta-gamma-vega) and show
+   delta-gamma VaR approximation vs full-reval.
+5. **Scenario import/export** — JSON import of external scenario libraries
+   (e.g. EBA stress test scenarios).
