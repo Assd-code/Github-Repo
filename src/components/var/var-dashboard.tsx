@@ -23,6 +23,7 @@ import { BreachFeedPanel } from "./breach-feed-panel";
 import { UtilizationHeatmapPanel } from "./utilization-heatmap-panel";
 import { DerivativesPanel } from "./derivatives-panel";
 import { HistoricalComparisonPanel } from "./historical-comparison-panel";
+import { ModellabilityPanel } from "./modellability-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -77,6 +78,7 @@ export function VarDashboard() {
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">L-VaR</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Reverse stress</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-4/15 text-chart-4 border-chart-4/30">Greeks</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">NMRF</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-rose-500/15 text-rose-500 border-rose-500/30">Breach feed</Badge>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -169,14 +171,17 @@ export function VarDashboard() {
               <Section i={16}><HistoricalComparisonPanel /></Section>
             </div>
 
+            {/* Modellability assessment (round 6) */}
+            <Section i={17}><ModellabilityPanel /></Section>
+
             {/* Market + Portfolio */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={17}><MarketPanel market={market} /></Section>
-              <Section i={18}><PortfolioPanel report={report} /></Section>
+              <Section i={18}><MarketPanel market={market} /></Section>
+              <Section i={19}><PortfolioPanel report={report} /></Section>
             </div>
 
             {/* Methodology reference */}
-            <Section i={19}>
+            <Section i={20}>
               <MethodologyReference />
             </Section>
           </>
@@ -194,7 +199,7 @@ export function VarDashboard() {
           <div className="flex items-center gap-3 flex-wrap justify-center">
             <span>Parametric · Historical · Monte Carlo · Filtered HS · EVT</span>
             <span>·</span>
-            <span>L-VaR · PLA · Reverse stress · Greeks · Limit monitoring · Scenario builder · Breach feed · Heatmap · Historical comparison · Kupiec · Christoffersen · Basel III</span>
+            <span>L-VaR · PLA · Reverse stress · Greeks · NMRF · Limit monitoring · Scenario builder · Breach feed · Heatmap · Historical comparison · Kupiec · Christoffersen · Basel III</span>
           </div>
         </div>
       </footer>

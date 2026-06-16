@@ -75,6 +75,8 @@ export async function computeLimitMonitoring(
         breached: r.status === "breach",
       })),
     });
+    // Auto-prune: keep at most 200 rows per scope to bound table growth.
+    await pruneReadings(200);
   } catch {
     // persistence is best-effort
   }
@@ -190,5 +192,35 @@ export async function utilizationHeatmap(slots: number = 12) {
     matrix.push({ scope, label, values });
   }
   return matrix;
+}
+
+/** Prune old VarReading rows to keep the audit table bounded.
+ *  Keeps the most recent `keepN` rows per scope. Returns count deleted. */
+export async function pruneReadings(keepN: number = 200): Promise<number> {
+  // Get all distinct scopes.
+  const scopes = await db.varReading.findMany({
+    select: { scope: true },
+    distinct: ["scope"],
+  });
+  let deleted = 0;
+  for (const { scope } of scopes) {
+    // Count rows for this scope.
+    const count = await db.varReading.count({ where: { scope } });
+    if (count <= keepN) continue;
+    // Find the cutoff date: the createdAt of the (keepN)th most recent row.
+    const cutoffRow = await db.varReading.findMany({
+      where: { scope },
+      orderBy: { createdAt: "desc" },
+      skip: keepN - 1,
+      take: 1,
+    });
+    if (cutoffRow.length === 0) continue;
+    const cutoff = cutoffRow[0].createdAt;
+    const result = await db.varReading.deleteMany({
+      where: { scope, createdAt: { lt: cutoff } },
+    });
+    deleted += result.count;
+  }
+  return deleted;
 }
 

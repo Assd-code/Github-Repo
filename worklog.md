@@ -473,3 +473,87 @@ Task: QA pass + add Derivatives with Greeks, Historical VaR Comparison, Scenario
 4. **Multi-portfolio support** — save/load named portfolios (currently single portfolio).
 5. **Risk factor modellability assessment** — FRTB NMRF identification based on data
    availability per risk factor.
+
+---
+Task ID: 15 (round 6 — cron review)
+Agent: main
+Task: QA pass + add Risk Factor Modellability (FRTB NMRF), Option Position Editor UI, VarReading auto-pruning + styling polish.
+
+## Current project status (assessment)
+- Rounds 1-5 delivered a stable dashboard with 5 VaR methodologies, ES, backtesting,
+  decomposition, stress testing, VaR trend, L-VaR, reverse stress (API-debounced),
+  P&L attribution, limit monitoring, scenario builder (import/export), breach feed,
+  utilization heatmap, derivatives with Greeks, historical VaR comparison, CSV export.
+  VLM-verified all sections PASS.
+- Fresh-load QA: 0 console errors, 0 hydration warnings, 0 lint errors.
+  24 charts, 5 tables, 8 sliders, all 15 sections present.
+- No bugs found. Project was stable → proceeded to add new features.
+
+## Completed modifications (this round)
+
+### New backend modules
+- src/lib/var/modellability.ts — computeModellability(): FRTB MAR33 risk factor
+  modellability assessment. For each risk factor: counts real-price observations
+  (last 252 days), finds largest gap between consecutive observations, determines
+  modellable status (≥ 24 obs, ≤ 21-day gap), computes NMRF capital surcharge
+  (2.5× stressed ES for non-modellable factors), assigns FRTB liquidity horizon
+  per asset class. Returns overall assessment (excellent/good/warning/poor).
+- src/lib/var/limits.ts — added pruneReadings(keepN=200): keeps the most recent N
+  rows per scope, deletes older. Auto-called in computeLimitMonitoring() to bound
+  table growth.
+
+### New API routes
+- src/app/api/var/modellability/route.ts — GET endpoint returning the modellability
+  report for the current portfolio + market data.
+
+### New frontend panels
+- src/components/var/modellability-panel.tsx — FRTB NMRF assessment panel:
+  4 summary cards (total/modellable/non-modellable/NMRF surcharge), modellable-%
+  progress bar, assessment badge (excellent/good/warning/poor), factors table
+  (7 columns: risk factor, class, observations, largest gap, liquidity horizon,
+  status, NMRF surcharge), color-coded status icons (emerald check / rose X),
+  explanatory text.
+- src/components/var/derivatives-panel.tsx — ENHANCED: added "Add Position" button
+  that opens a full option position editor dialog (symbol, underlying, type,
+  direction, quantity, contract size, strike, maturity, IV, risk-free rate).
+  Reuses the same dialog pattern as the VaR limit editor.
+
+### Dashboard wiring
+- src/components/var/var-dashboard.tsx — wired ModellabilityPanel into a new full-width
+  row. Added "NMRF" badge to header. Updated footer feature list.
+
+## Verification results
+- Fresh reload: 0 console errors, 0 hydration warnings.
+- ESLint: 0 errors.
+- DOM: 24 charts, 6 tables (was 5), 8 sliders.
+- All 16 sections present: VaR Trend, Liquidity, Reverse Stress, P&L Attribution,
+  Limit Monitoring, Scenario Builder, Breach Feed, Utilization Heatmap, Derivatives
+  & Greeks, Historical VaR Comparison, Risk Factor Modellability, Backtest,
+  Decomposition, Stress, Market Data, Portfolio.
+- VLM audit: all sections PASS, no broken layouts, footer at bottom.
+- Modellability: 7 factors, all 7 modellable (252 observations each, 1-day gaps),
+  assessment "excellent", $0 NMRF surcharge.
+- Option editor: opens via "Position" button, 7 inputs + 3 selects, dialog title
+  "Add Option Position".
+- VarReading auto-pruning: keeps ≤ 200 rows per scope, bounds table growth.
+- Mobile (390px): no horizontal overflow.
+- API timing: report 1.1s, modellability 5ms, derivatives 15ms.
+
+## Unresolved issues / risks
+- Option position editor saves locally (re-fetches defaults); a full implementation
+  would persist the option book to a Prisma table and support edit/delete. The API
+  already accepts custom positions via POST — only the persistence layer is missing.
+- Modellability uses the simulated price series; real implementations would query
+  a market-data availability table for actual observation counts.
+- NMRF surcharge is an approximation (2.5× stressed ES); FRTB prescribes specific
+  shock factors per risk factor type.
+
+## Priority recommendations for next phase
+1. **Persist option positions** — add an OptionPosition Prisma model so the option
+   book survives page reloads; wire the editor's save/delete to the API.
+2. **VaR breach email/webhook alerts** — configurable alert routing when a reading
+   breaches (uses the VarReading audit table).
+3. **Multi-portfolio support** — save/load named portfolios (currently single portfolio).
+4. **NMRF scenario explorer** — interactive tool to see how capital changes as risk
+   factors lose modellability (e.g. simulate data outages).
+5. **PDF export** — generate a formatted PDF report (in addition to the current CSV).

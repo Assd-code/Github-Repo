@@ -457,3 +457,37 @@ export interface HistoricalVarComparison {
   histogram: { x: number; count: number; isCurrent: boolean }[];
 }
 
+// ---- New feature types (round 6) ----
+
+/** Risk factor modellability assessment per FRTB MAR33. */
+export interface RiskFactorAssessment {
+  /** the risk factor (asset symbol) */
+  symbol: string;
+  name: string;
+  assetClass: AssetClass;
+  /** number of "real price" observations in the last 12 months */
+  observationCount: number;
+  /** FRTB requires >= 24 observations over 12 months, with <= 1 month gap */
+  modellable: boolean;
+  /** reason if non-modellable */
+  reason: string;
+  /** largest gap between consecutive observations (days) */
+  largestGap: number;
+  /** the NMRF capital surcharge if non-modellable (USD) */
+  nmrfSurcharge: number;
+  /** FRTB liquidity horizon assigned (days) */
+  liquidityHorizon: 10 | 20 | 40 | 60 | 120;
+}
+
+export interface ModellabilityReport {
+  factors: RiskFactorAssessment[];
+  totalFactors: number;
+  modellableCount: number;
+  nonModellableCount: number;
+  totalNmrfSurcharge: number;
+  /** percentage of risk factors that are modellable */
+  modellablePct: number;
+  /** overall assessment */
+  assessment: "excellent" | "good" | "warning" | "poor";
+}
+

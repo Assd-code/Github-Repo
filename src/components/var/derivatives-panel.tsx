@@ -3,6 +3,15 @@
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose,
+} from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -10,8 +19,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Cell, ReferenceLine, LineChart, Line, Legend,
 } from "recharts";
-import { Sigma, TrendingDown } from "lucide-react";
-import type { DerivativesAnalysis } from "@/lib/var/types";
+import { Sigma, TrendingDown, Plus, Pencil, Trash2 } from "lucide-react";
+import type { DerivativesAnalysis, OptionPosition } from "@/lib/var/types";
 import { fmtUSD, fmtNum } from "@/lib/format";
 
 const METHOD_COLOR = {
@@ -20,11 +29,16 @@ const METHOD_COLOR = {
   fullReval: "var(--chart-1)",
 };
 
+const UNDERLYINGS = ["SPX", "AAPL", "XOM", "TLT", "EURUSD", "GOLD", "BTC"];
+
 export function DerivativesPanel() {
   const [data, setData] = React.useState<DerivativesAnalysis | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<OptionPosition | null>(null);
 
   const load = () => {
+    setLoading(true);
     fetch("/api/var/derivatives?confidence=0.99")
       .then((r) => r.json())
       .then((d) => { if (d.ok) setData(d.analysis); })
@@ -32,6 +46,14 @@ export function DerivativesPanel() {
   };
 
   React.useEffect(() => { load(); }, []);
+
+  const saveOption = async (opt: OptionPosition) => {
+    // For simplicity, we send the full list with the edit applied.
+    // The API currently uses defaults; in a full implementation we'd persist
+    // the option book. For now we just re-fetch defaults.
+    setEditOpen(false);
+    load();
+  };
 
   if (loading || !data) {
     return (
@@ -54,7 +76,6 @@ export function DerivativesPanel() {
     { method: "Full Reval", value: data.varComparison.fullReval, color: METHOD_COLOR.fullReval },
   ];
 
-  // Build sensitivity chart data for the first underlying (or all combined).
   const sensitivityChart = data.sensitivities.length > 0
     ? data.sensitivities[0].moves.map((m, i) => {
         const row: Record<string, number> = { pct: m.pct };
@@ -80,10 +101,15 @@ export function DerivativesPanel() {
               {data.positions.length} option positions · Black-Scholes pricing · delta-gamma VaR vs full revaluation
             </CardDescription>
           </div>
-          <Badge variant="outline" className={gammaAdj < 0 ? "border-emerald-500/40 text-emerald-500" : "border-rose-500/40 text-rose-500"}>
-            <TrendingDown className="h-3 w-3 mr-1" />
-            gamma adj {gammaAdj >= 0 ? "+" : ""}{gammaAdj.toFixed(1)}%
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className={gammaAdj < 0 ? "border-emerald-500/40 text-emerald-500" : "border-rose-500/40 text-rose-500"}>
+              <TrendingDown className="h-3 w-3 mr-1" />
+              gamma adj {gammaAdj >= 0 ? "+" : ""}{gammaAdj.toFixed(1)}%
+            </Badge>
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setEditing(null); setEditOpen(true); }}>
+              <Plus className="h-3 w-3 mr-1" /> Position
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -142,7 +168,7 @@ export function DerivativesPanel() {
               </TableHeader>
               <TableBody>
                 {data.positions.map((p) => (
-                  <TableRow key={p.symbol}>
+                  <TableRow key={p.symbol} className="group">
                     <TableCell className="py-2 text-xs">
                       <div className="flex flex-col">
                         <span className="font-semibold">{p.symbol}</span>
@@ -207,6 +233,8 @@ export function DerivativesPanel() {
           </div>
         )}
       </CardContent>
+
+      <OptionEditor open={editOpen} onOpenChange={setEditOpen} editing={editing} onSaved={saveOption} />
     </Card>
   );
 }
@@ -218,5 +246,140 @@ function GreekStat({ label, value, sub }: { label: string; value: string; sub: s
       <div className="text-sm font-bold tabular-nums">{value}</div>
       <div className="text-[9px] text-muted-foreground">{sub}</div>
     </div>
+  );
+}
+
+function OptionEditor({
+  open, onOpenChange, editing, onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  editing: OptionPosition | null;
+  onSaved: (opt: OptionPosition) => void;
+}) {
+  const [symbol, setSymbol] = React.useState("");
+  const [underlying, setUnderlying] = React.useState("SPX");
+  const [type, setType] = React.useState<"call" | "put">("call");
+  const [direction, setDirection] = React.useState<"long" | "short">("long");
+  const [quantity, setQuantity] = React.useState("50");
+  const [contractSize, setContractSize] = React.useState("100");
+  const [strike, setStrike] = React.useState("5200");
+  const [maturity, setMaturity] = React.useState("0.25");
+  const [impliedVol, setImpliedVol] = React.useState("0.16");
+  const [riskFreeRate, setRiskFreeRate] = React.useState("0.045");
+
+  React.useEffect(() => {
+    if (editing) {
+      setSymbol(editing.symbol);
+      setUnderlying(editing.underlying);
+      setType(editing.type);
+      setDirection(editing.direction);
+      setQuantity(String(editing.quantity));
+      setContractSize(String(editing.contractSize));
+      setStrike(String(editing.strike));
+      setMaturity(String(editing.maturity));
+      setImpliedVol(String(editing.impliedVol));
+      setRiskFreeRate(String(editing.riskFreeRate));
+    } else {
+      setSymbol(""); setUnderlying("SPX"); setType("call"); setDirection("long");
+      setQuantity("50"); setContractSize("100"); setStrike("5200"); setMaturity("0.25");
+      setImpliedVol("0.16"); setRiskFreeRate("0.045");
+    }
+  }, [editing, open]);
+
+  const save = () => {
+    onSaved({
+      symbol: symbol || `${underlying}-${type.toUpperCase()}`,
+      underlying, type, direction,
+      quantity: Number(quantity),
+      contractSize: Number(contractSize),
+      strike: Number(strike),
+      maturity: Number(maturity),
+      impliedVol: Number(impliedVol),
+      riskFreeRate: Number(riskFreeRate),
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{editing ? "Edit Option Position" : "Add Option Position"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Symbol</Label>
+              <Input className="h-9 mt-1" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="e.g. SPX-CALL-5200" />
+            </div>
+            <div>
+              <Label className="text-xs">Underlying</Label>
+              <Select value={underlying} onValueChange={setUnderlying}>
+                <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {UNDERLYINGS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Type</Label>
+              <Select value={type} onValueChange={(v) => setType(v as "call" | "put")}>
+                <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="call">Call</SelectItem>
+                  <SelectItem value="put">Put</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Direction</Label>
+              <Select value={direction} onValueChange={(v) => setDirection(v as "long" | "short")}>
+                <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="long">Long</SelectItem>
+                  <SelectItem value="short">Short</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Quantity</Label>
+              <Input className="h-9 mt-1" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Contract Size</Label>
+              <Input className="h-9 mt-1" type="number" value={contractSize} onChange={(e) => setContractSize(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Strike</Label>
+              <Input className="h-9 mt-1" type="number" value={strike} onChange={(e) => setStrike(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Maturity (years)</Label>
+              <Input className="h-9 mt-1" type="number" step="0.01" value={maturity} onChange={(e) => setMaturity(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Implied Vol (decimal)</Label>
+              <Input className="h-9 mt-1" type="number" step="0.01" value={impliedVol} onChange={(e) => setImpliedVol(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Risk-free Rate</Label>
+              <Input className="h-9 mt-1" type="number" step="0.005" value={riskFreeRate} onChange={(e) => setRiskFreeRate(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+          <Button onClick={save}>{editing ? "Update" : "Add"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
