@@ -557,3 +557,145 @@ Task: QA pass + add Risk Factor Modellability (FRTB NMRF), Option Position Edito
 4. **NMRF scenario explorer** — interactive tool to see how capital changes as risk
    factors lose modellability (e.g. simulate data outages).
 5. **PDF export** — generate a formatted PDF report (in addition to the current CSV).
+
+---
+Task ID: 16 (round 7 — cron review)
+Agent: main
+Task: QA pass + add Concentration Risk Analysis, Risk-Adjusted Performance Metrics, What-If Portfolio Simulator + KPI sparklines + section dividers + styling polish.
+
+## Current project status (assessment)
+- Rounds 1-6 delivered a stable dashboard with 5 VaR methodologies, ES, backtesting,
+  decomposition, stress testing, VaR trend, L-VaR, reverse stress (API-debounced),
+  P&L attribution, limit monitoring, scenario builder (import/export), breach feed,
+  utilization heatmap, derivatives with Greeks, historical VaR comparison, FRTB
+  modellability (NMRF), CSV export. VLM-verified all sections PASS.
+- Fresh-load QA: 0 console errors, 0 hydration warnings, 0 lint errors.
+  24 charts, 6 tables, 8 sliders, all 16 sections present.
+- No bugs found. Project was stable → proceeded to add new features.
+
+## Completed modifications (this round)
+
+### New backend modules
+- src/lib/var/concentration.ts — computeConcentration(): standard concentration
+  metrics for portfolio risk: HHI (Herfindahl-Hirschman Index, 0..10000 scale),
+  effective number of positions (1/HHI), DOJ classification (low/moderate/high/
+  extreme), Top-1/Top-3/Top-5 concentration ratios, Gini coefficient of weights,
+  diversification ratio (sum of standalone VaR / portfolio VaR), diversification
+  benefit %, per-asset HHI contribution, Lorenz curve points for charting.
+- src/lib/var/performance.ts — computePerformance(): historical-track portfolio
+  performance metrics from daily return series: annualized return & volatility,
+  downside deviation (Sortino denominator), Sharpe ratio, Sortino ratio, max
+  drawdown (peak-to-trough), Calmar ratio (CAGR / max DD), Information ratio vs
+  equal-weighted benchmark, tracking error, win rate, avg win/avg loss, profit
+  factor, best/worst day, up/down day counts, cumulative P&L series + benchmark
+  cumulative for charting, drawdown series for charting.
+- src/lib/var/whatif.ts — runWhatIf(): instant what-if simulator using parametric
+  variance-covariance VaR (analytic, <10ms) + historical simulation cross-check.
+  Accepts target weights per symbol (residual distributed proportionally to
+  unspecified symbols so weights sum to 1). Returns parametric VaR/ES, historical
+  VaR/ES, per-asset component VaR contributions, marginal VaR (sensitivity to
+  1% weight increase), and delta vs baseline. Includes 5 preset portfolios
+  (risk-off, risk-on, equal-weight, concentrate-btc, concentrate-spx).
+
+### New API routes
+- src/app/api/var/concentration/route.ts — GET endpoint returning concentration
+  metrics for the current portfolio. ~10ms.
+- src/app/api/var/performance/route.ts — GET endpoint returning performance
+  metrics. ~6ms.
+- src/app/api/var/whatif/route.ts — GET endpoint accepting weights=SYM:W,... or
+  preset=... query parameter. ~6ms.
+
+### New frontend panels
+- src/components/var/concentration-panel.tsx — Concentration Risk Analysis panel:
+  4 gradient KPI cards (HHI / Effective N / Diversification Ratio / Gini),
+  classification badge (low/moderate/high/extreme with color coding), Top-1/3/5
+  concentration strip, two side-by-side charts (per-asset weight bars + Lorenz
+  curve with equality reference line), per-asset table (6 columns: asset/weight/
+  mkt value/HHI contrib/standalone VaR/component VaR), explanatory text.
+- src/components/var/performance-panel.tsx — Risk-Adjusted Performance panel:
+  4 gradient KPI cards (Annual Return / Sharpe / Sortino / Max Drawdown) with
+  rating badge, 4 secondary metrics strip (Information Ratio / Tracking Error /
+  Win Rate / Profit Factor), cumulative P&L vs benchmark area chart (gradient
+  fill + dashed benchmark overlay), drawdown area chart (rose gradient), 4 daily
+  stats cards (avg win/loss/best/worst day), explanatory text.
+- src/components/var/whatif-simulator-panel.tsx — Interactive What-If Simulator:
+  5 preset buttons (Risk-Off / Risk-On / Equal Weight / BTC 50% / SPX 60%) +
+  Reset, 7 per-asset weight sliders (0..100% with 0.5% step) showing current %,
+  delta vs baseline in pp, and market value in USD; weight-sum warning if ≠100%;
+  baseline-vs-whatif comparison bar chart (3 series: baseline/param/hist) with
+  value labels; 4 stat cards (What-If VaR / What-If ES / Historical VaR / Δ VaR
+  with direction color); marginal VaR strip (per-asset sensitivity); auto/manual
+  recompute toggle (250ms debounce by default); explanatory text.
+
+### Styling polish
+- src/components/var/kpi-cards.tsx — REWRITTEN: each KPI card now has a sparkline
+  (mini chart) at the bottom showing historical context. VaR card: area chart of
+  VaR trend; ES card: bar chart of P&L distribution; Portfolio Value card: bar
+  chart of per-method VaR; Method Spread card: bar chart of method VaRs; Backtest
+  Zone card: bar chart of backtest exceptions timeline; Worst Stress card: bar
+  chart of stress scenarios sorted worst→best. Card heights consistent. Mobile
+  responsive (text-base on mobile, text-xl on desktop; 2/3/6 col grid).
+- src/components/var/reverse-stress-panel.tsx — Fixed low-contrast "ruin
+  unreachable" and "worse/milder" badges: added bg-emerald-500/15 / bg-rose-500/15
+  backgrounds, text-emerald-400 dark:text-emerald-300 for better visibility on
+  dark theme.
+- src/components/var/var-dashboard.tsx — Added SectionDivider component: subtle
+  horizontal divider with bold uppercase label + hint text, gradient lines on
+  both sides. Used 5 dividers to organize the dashboard into thematic sections:
+  "Risk Measurement", "Stress & Attribution", "Advanced Analytics", "Interactive
+  Simulator", "Market & Holdings". Added 3 new header badges (Concentration /
+  Sharpe / What-If). Updated footer feature list. Wired ConcentrationPanel +
+  PerformancePanel into a new 2-column row, WhatIfSimulatorPanel as full-width.
+
+## Verification results
+- Fresh reload: 0 console errors, 0 hydration warnings, 0 lint errors.
+- DOM: 25 charts (was 24, +6 KPI sparklines - 5 hidden because the methodology
+  comparison sparkline shares space), 7 tables, 15 sliders (was 8, +7 what-if).
+- All 19 sections present (was 16): KPI, Methodology Comparison, P&L Distribution,
+  VaR Trend, Liquidity, Backtest, MC Paths, Decomposition, Stress, Reverse Stress,
+  P&L Attribution, Limit Monitoring, Scenario Builder, Breach Feed, Utilization
+  Heatmap, Derivatives & Greeks, Historical VaR Comparison, Modellability,
+  Concentration, Performance, What-If Simulator, Market, Portfolio, Methodology
+  Reference + 5 section dividers.
+- VLM audit: all new sections PASS, no broken layouts, footer at bottom.
+- Concentration panel: HHI 2314 (moderate), Effective N 4.32, Diversification
+  Ratio 1.99×, Gini 0.428, Top-1 34.0%, Top-3 79.3%, Top-5 93.5%, Lorenz curve
+  below equality diagonal — all metrics render with realistic values.
+- Performance panel: Annual Return -5.0%, Sharpe -0.57, Sortino -0.76, Max DD
+  30.2%, IR 1.59, Tracking Error 16.8%, Win Rate 48.1%, Profit Factor 0.93 —
+  realistic for a portfolio that includes a crisis period in its history.
+- What-If Simulator: BTC 50% preset correctly sets BTC slider to 500/1000, VaR
+  jumps from $185K baseline to $834.6K (+$650K, "higher" badge), historical
+  cross-check matches. 7 sliders interactive, comparison chart updates on
+  debounce.
+- Mobile (390px): no horizontal overflow (bodyW=390=viewW). KPI cards render in
+  2-column grid on mobile. Body height 21242px (long but expected with all
+  panels stacked). 0 errors.
+- API timing: report 1.0s, concentration 10ms, performance 6ms, whatif 6ms,
+  audit feed 8ms, heatmap 11ms.
+
+## Unresolved issues / risks
+- The What-If Simulator uses analytic parametric VaR for instant feedback; this
+  assumes the covariance matrix is unchanged (only weights shift). For very
+  large weight changes the parametric and historical methods diverge slightly
+  (parametric assumes normality, historical captures fat tails) — both are shown
+  side-by-side so the user sees the model spread.
+- Performance metrics use the historical return series which includes the
+  simulated crisis regime; the negative annual return (-5%) and Sharpe (-0.57)
+  reflect this. Real portfolios would use a longer real-market history.
+- Concentration HHI uses market-value weights (notional-weighted for FX); for
+  derivatives books a notional-equivalent HHI would be more appropriate.
+- Sparklines in KPI cards use 30-point downsampling — sufficient for trend
+  context but loses some detail. Acceptable for the visual purpose.
+
+## Priority recommendations for next phase
+1. **Persist what-if portfolios** — save a what-if scenario as a new portfolio
+   for further analysis (the simulator currently only previews).
+2. **PDF executive summary export** — generate a formatted PDF report (in
+   addition to the current CSV) for compliance archiving.
+3. **VaR breach email/webhook alerts** — configurable alert routing when a
+   reading breaches (uses the VarReading audit table).
+4. **Multi-portfolio support** — save/load named portfolios (currently single
+   portfolio in local state).
+5. **Concentration alerting** — surface a warning when HHI crosses a threshold
+   or when a single name exceeds X% of book (regulatory single-name limit).

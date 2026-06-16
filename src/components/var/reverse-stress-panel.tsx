@@ -90,7 +90,14 @@ export function ReverseStressPanel({
               What shock magnitude would break the book? Drag the target loss for an exact non-linear recompute.
             </CardDescription>
           </div>
-          <Badge variant="outline" className={ruinFloor ? "border-emerald-500/40 text-emerald-500" : "border-rose-500/40 text-rose-500"}>
+          <Badge
+            variant="outline"
+            className={
+              ruinFloor
+                ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-400 dark:text-emerald-300"
+                : "border-rose-500/50 bg-rose-500/15 text-rose-400 dark:text-rose-300"
+            }
+          >
             {ruinFloor ? <ShieldCheck className="h-3 w-3 mr-1" /> : <AlertTriangle className="h-3 w-3 mr-1" />}
             {ruinFloor ? "ruin unreachable" : `margin to ruin ${fmtPct(rs.marginToRuin, 1)}`}
           </Badge>
@@ -126,13 +133,13 @@ export function ReverseStressPanel({
           </div>
           <div className="rounded-lg border bg-muted/30 px-2.5 py-2">
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground">vs Lehman (−32%)</div>
-            <div className={`text-base font-bold tabular-nums ${worseThanLehman ? "text-rose-500" : "text-emerald-500"}`}>
+            <div className={`text-base font-bold tabular-nums ${worseThanLehman ? "text-rose-400 dark:text-rose-300" : "text-emerald-400 dark:text-emerald-300"}`}>
               {worseThanLehman ? "worse" : "milder"}
             </div>
           </div>
           <div className="rounded-lg border bg-muted/30 px-2.5 py-2">
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground">vs COVID (−34%)</div>
-            <div className={`text-base font-bold tabular-nums ${worseThanCovid ? "text-rose-500" : "text-emerald-500"}`}>
+            <div className={`text-base font-bold tabular-nums ${worseThanCovid ? "text-rose-400 dark:text-rose-300" : "text-emerald-400 dark:text-emerald-300"}`}>
               {worseThanCovid ? "worse" : "milder"}
             </div>
           </div>

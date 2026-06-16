@@ -1,0 +1,560 @@
+     1→# Project Worklog — VaR Risk Model Web Application
+     2→
+     3→## Project Overview
+     4→Building a comprehensive Value-at-Risk (VaR) risk model as an interactive Next.js web
+     5→application. Implements the full methodology stack described in the requirements:
+     6→parametric, historical simulation, Monte Carlo, filtered historical simulation, EVT,
+     7→Expected Shortfall, backtesting (Kupiec/Christoffersen/Basel traffic light), risk
+     8→decomposition (marginal/component/incremental VaR), stress testing, and an interactive
+     9→dashboard with multiple visualizations.
+    10→
+    11→---
+    12→Task ID: 1
+    13→Agent: main
+    14→Task: Project foundation — start dev server, set up worklog, plan architecture.
+    15→
+    16→Work Log:
+    17→- Inspected existing Next.js 16 + TS + Tailwind 4 + shadcn/ui scaffold.
+    18→- Confirmed recharts, framer-motion, zustand, tanstack-query available.
+    19→- Started dev server on port 3000 (Ready in 539ms, GET / 200).
+    20→- Created worklog.md and planned module layout:
+    21→  - src/lib/var/types.ts
+    22→  - src/lib/var/rng.ts (seeded PRNG, normal inverse CDF, quantile, covariance, Cholesky)
+    23→  - src/lib/var/market-data.ts (synthetic multi-asset GBM with regimes + correlation)
+    24→  - src/lib/var/methods.ts (parametric, historical, Monte Carlo, FHS, EVT)
+    25→  - src/lib/var/backtest.ts (Kupiec, Christoffersen, Basel traffic light)
+    26→  - src/lib/var/decomposition.ts (marginal/component/incremental VaR)
+    27→  - src/lib/var/stress.ts (historical + hypothetical scenarios)
+    28→  - src/lib/var/engine.ts (orchestrator)
+    29→  - src/app/api/var/* routes
+    30→  - src/app/page.tsx dashboard
+    31→
+    32→Stage Summary:
+    33→- Dev server up and healthy. Foundation ready to build VaR engine modules.
+    34→
+    35→---
+    36→Task ID: 2-7
+    37→Agent: main
+    38→Task: Build the full VaR engine (math, data, methods, backtest, decomposition, stress) and API routes.
+    39→
+    40→Work Log:
+    41→- src/lib/var/types.ts — full type system (MarketData, VarResult, BacktestResult, DecompositionResult, StressResult, FullReport).
+    42→- src/lib/var/rng.ts — mulberry32 seeded PRNG, Box-Muller normal, Acklam normal inverse CDF, normal CDF, linear-interpolation quantile, mean/std/sum, covariance matrix, Cholesky decomposition (with ridge correction), correlation matrix, histogram (NaN-safe), chi-square p-value via regularized incomplete gamma (series + Lentz continued fraction), downsample.
+    43→- src/lib/var/market-data.ts — 7-asset universe (SPX, AAPL, XOM, TLT, EURUSD, GOLD, BTC), correlated GBM simulation with 4 volatility regimes (calm/buildup/crisis/recovery), crisis contagion across asset classes, realized covariance/mean/vol, portfolio weight scaling.
+    44→- src/lib/var/methods.ts — parametric (variance-covariance, sqrt-of-time horizon scaling), historical simulation (overlapping horizon returns), Monte Carlo (correlated GBM path stepping, 10k paths, returns sample paths for viz), filtered HS (EWMA vol filter + bootstrap of standardized residuals), EVT (Zhang-Stephens GPD MLE fit + analytic VaR/ES formulas + augmented distribution). Fixed critical bugs: double-applied volatility, operator-precedence NaN in portfolio weights, parametric sample injection pollution, EVT using downsampled data.
+    45→- src/lib/var/backtest.ts — rolling-window backtest, Kupiec POF LR test, Christoffersen independence + conditional coverage tests, Basel traffic-light zones (green/yellow/red with capital multipliers).
+    46→- src/lib/var/decomposition.ts — marginal VaR (analytic dVaR/dw), component VaR (sums to parametric total), incremental VaR (historical-based, leave-one-out), standalone VaR.
+    47→- src/lib/var/stress.ts — 7 scenarios (Lehman 2008, COVID 2020, Rate Shock 2022, equity crash, vol spike, crypto wipeout, flight to safety) with per-asset-class shock factors.
+    48→- src/lib/var/engine.ts — orchestrator running all 5 methodologies + backtest + decomposition + stress.
+    49→- src/lib/var/cache.ts — memoized market-data cache.
+    50→- src/app/api/var/report/route.ts — full report endpoint with query params (confidence, horizon, seed, method, positions, totalValue).
+    51→- src/app/api/var/market/route.ts — compact price history for charting.
+    52→
+    53→Bugs found & fixed during testing:
+    54→1. const reassign in chiSquarePValue continued-fraction.
+    55→2. Double volatility application in generateMarketData (shocks already scaled by Cholesky).
+    56→3. Operator precedence: `?.quantity * scale ?? 0` produced NaN for assets not in reduced portfolio.
+    57→4. Parametric VaR injected an analytic sample that polluted the 1% quantile.
+    58→5. Decomposition sign errors (marginal/standalone used wrong sign on z term).
+    59→6. EVT used downsampled distribution; rewrote to use full P&L + analytic GPD VaR formula.
+    60→
+    61→Stage Summary:
+    62→- API verified: GET /api/var/report returns 117KB JSON in ~190ms.
+    63→- Realistic results for $10M portfolio (99% 1-day): Parametric $185k, Historical $264k,
+    64→  Monte Carlo $182k, Filtered HS $187k, EVT $264k (ES $303k).
+    65→- Backtest: 6 exceptions vs 2.5 expected, yellow zone, Kupiec p=0.059, CC p=0.050.
+    66→- Decomposition: component VaRs sum to parametric total; incremental VaR correct
+    67→  (BTC +$22k, GOLD +$23k; TLT/EURUSD negative or zero = diversifiers).
+    68→- Stress: 5 of 7 scenarios breach 99% VaR (Lehman/COVID/RateShock/EquityCrash/CryptoWipeout).
+    69→- Ready to build the frontend dashboard.
+    70→
+    71→---
+    72→Task ID: 8-9
+    73→Agent: main
+    74→Task: Build the interactive frontend dashboard and verify end-to-end.
+    75→
+    76→Work Log:
+    77→- src/lib/format.ts — currency/percent/number/date formatters (compact + full).
+    78→- src/components/theme-provider.tsx + theme-toggle.tsx — next-themes dark/light toggle.
+    79→- src/app/layout.tsx — wrapped in ThemeProvider (defaultTheme dark), updated metadata.
+    80→- src/components/var/use-var-data.ts — React hook fetching /api/var/report + /api/var/market, manages controls (method, confidence, horizon, seed, portfolio).
+    81→- src/components/var/control-bar.tsx — methodology/confidence/horizon/seed selectors, portfolio editor dialog (add/remove/resize positions), recompute button.
+    82→- src/components/var/kpi-cards.tsx — 6 gradient KPI cards (VaR, ES, portfolio value, method spread, backtest zone, worst stress).
+    83→- src/components/var/methodology-comparison.tsx — grouped bar chart (VaR vs ES per method) + detailed table with active-method highlight.
+    84→- src/components/var/pnl-distribution.tsx — histogram with VaR/ES/mean reference lines, color-coded tail/loss/gain bins, 6-stat panel.
+    85→- src/components/var/backtest-panel.tsx — ComposedChart (P&L area + −VaR line + exception scatter), Basel traffic-light badge, Kupiec/Christoffersen test cards, zone band reference.
+    86→- src/components/var/mc-paths-panel.tsx — Monte Carlo path visualization with percentile stats (active only for MC method).
+    87→- src/components/var/decomposition-panel.tsx — horizontal bar chart of component VaR by asset + full table (marginal/component/incremental/standalone) + methodology legend.
+    88→- src/components/var/stress-panel.tsx — horizontal bar chart of scenario P&L vs −VaR line + per-scenario breach cards.
+    89→- src/components/var/market-panel.tsx — tabbed: normalized price lines, correlation heatmap (diverging rose/emerald), asset universe cards.
+    90→- src/components/var/portfolio-panel.tsx — holdings table with allocation bars.
+    91→- src/components/var/var-dashboard.tsx — orchestrator: sticky header, control bar, KPIs, 4×2-section grid, methodology reference, sticky footer.
+    92→- src/app/page.tsx — renders VarDashboard.
+    93→
+    94→Verification (agent-browser + VLM):
+    95→- Page loads with 0 console errors, title "VaR Lab — Value-at-Risk Risk Model".
+    96→- 13-14 recharts charts, 3 data tables, all KPI numbers correct.
+    97→- Methodology switch (Historical → Monte Carlo) reveals MC paths panel.
+    98→- Confidence switch (99% → 95%) correctly lowers VaR ($184.6K → $130.7K parametric).
+    99→- Portfolio editor dialog opens with 7 position rows + total-value input.
+   100→- Mobile (390px): fixed horizontal overflow (wrapped tables in overflow-x-auto, made TabsList scrollable).
+   101→- VLM full-page audit: all 12 sections PASS (KPI, methodology table, P&L dist, backtest, MC paths, decomposition, stress, market, portfolio, sticky footer, no empty sections, charts display data).
+   102→- ESLint: 0 errors.
+   103→
+   104→Stage Summary:
+   105→- Production-ready VaR dashboard. Dark-theme financial-terminal aesthetic with
+   106→  rose/amber/emerald traffic-light palette (no indigo/blue).
+   107→- All 5 methodologies, ES, backtesting (Kupiec/Christoffersen/Basel), decomposition
+   108→  (marginal/component/incremental/standalone), 7 stress scenarios, correlation heatmap,
+   109→  MC path viz, interactive portfolio editor — all verified working.
+   110→- Sticky footer confirmed; responsive from 390px → 1440px+.
+   111→
+   112→---
+   113→Task ID: 11 (round 2 — cron review)
+   114→Agent: main
+   115→Task: QA pass + add 4 new features (VaR trend, L-VaR/FRTB, reverse stress, P&L attribution) + CSV export + styling polish.
+   116→
+   117→## Current project status (assessment)
+   118→- Round 1 delivered a stable, production-ready VaR dashboard with 5 methodologies,
+   119→  ES, backtesting (Kupiec/Christoffersen/Basel), decomposition, stress testing,
+   120→  market panel, portfolio editor. Verified by VLM (all 12 sections PASS).
+   121→- Fresh-load QA: 0 console errors, 0 lint errors, APIs healthy (~100-190ms).
+   122→- No bugs found requiring immediate fix. Project was stable → proceeded to add
+   123→  new features per the suggested roadmap.
+   124→
+   125→## Completed modifications (this round)
+   126→
+   127→### New backend modules
+   128→- src/lib/var/trend.ts — computeVarTrend(): rolling 250-day VaR vs realized P&L
+   129→  time series with procyclicality stats (mean/max/min VaR, VaR volatility, spike-day %).
+   130→- src/lib/var/liquidity.ts — computeLiquidityAdjustedVar(): FRTB 97.5% ES scaled
+   131→  across 5 liquidity horizons (10/20/40/60/120d) via sqrt-of-time, per-asset-class
+   132→  horizon weighting (equity 10d, fx/commodity 20d, rate 40d, crypto 60d), aggregated
+   133→  ES + regulatory capital (3.0× multiplier).
+   134→- src/lib/var/reverse-stress.ts — computeReverseStress(): binary-search the uniform
+   135→  shock intensity producing a target loss, with per-asset-class sensitivities
+   136→  (equity/crypto/commodity fall, treasuries rally). Handles unreachable-ruin case
+   137→  (bond hedge floors the book). Reports margin-to-ruin, sigma-event probability,
+   138→  comparison to Lehman/COVID.
+   139→- src/lib/var/pla.ts — computePnlAttribution(): FRTB P&L Attribution test comparing
+   140→  risk-theoretical P&L (linear risk factors) vs hypothetical P&L (with convexity
+   141→  residual). Spearman rank correlation + mean-abs-residual, traffic-light zone
+   142→  (green ≥0.80 ρ & <10% residual; amber/red thresholds).
+   143→- src/lib/var/types.ts — added VarTrend, LiquidityAdjustedVar, ReverseStressResult,
+   144→  PnlAttribution types; extended FullReport with 4 new fields.
+   145→- src/lib/var/engine.ts — wired all 4 new computations into buildFullReport().
+   146→- src/app/api/var/export/route.ts — CSV export endpoint with all 8 report sections
+   147→  (portfolio, methodologies, backtest, decomposition, stress, liquidity, reverse
+   148→  stress, PLA, trend). Returns 7.7KB CSV in ~150ms.
+   149→
+   150→### New frontend panels
+   151→- src/components/var/var-trend-panel.tsx — ComposedChart (VaR area + P&L area +
+   152→  exception scatter) with mean-VaR reference line, 5 stat cards, procyclicality
+   153→  risk badge (low/moderate/high).
+   154→- src/components/var/liquidity-panel.tsx — gradient KPI cards (aggregated ES +
+   155→  regulatory capital), bar chart of 5 FRTB horizons with ratio bars, FRTB MAR33 badge.
+   156→- src/components/var/reverse-stress-panel.tsx — interactive target-loss slider
+   157→  (5-80%, client-side linear interpolation), per-asset-class shock chart, Lehman/COVID
+   158→  comparison, sigma-event probability, ruin-floor detection.
+   159→- src/components/var/pnl-attribution-panel.tsx — RTPL vs HPL line chart + residual
+   160→  scatter, Spearman ρ / mean-residual / window stat cards, PLA traffic-light badge.
+   161→- src/components/var/control-bar.tsx — added Export CSV button (opens /api/var/export).
+   162→- src/components/var/var-dashboard.tsx — wired 4 new panels into a 7-row grid;
+   163→  added framer-motion fade-up animations on every section (staggered, custom delay);
+   164→  added L-VaR + Reverse stress badges to header; expanded footer feature list;
+   165→  hover transitions on methodology reference cards.
+   166→
+   167→## Verification results
+   168→- Fresh reload: 0 console errors, 0 warnings.
+   169→- ESLint: 0 errors.
+   170→- DOM: 17 charts (was 13), 3 tables, 1 slider, all 9 sections present
+   171→  (VaR Trend, Liquidity, Reverse Stress, P&L Attribution, Backtest, Decomposition,
+   172→  Stress, Market Data, Portfolio Holdings).
+   173→- VLM audit: all 4 new sections PASS (VaR Trend, Liquidity-Adjusted VaR FRTB,
+   174→  Reverse Stress Testing, P&L Attribution PLA). No broken layouts, footer confirmed.
+   175→- Slider interactivity: arrow-key changes value 20→35, chart updates client-side.
+   176→- Mobile (390px): no horizontal overflow.
+   177→- CSV export: 198 lines, 7.7KB, well-formatted with 8 sections.
+   178→- API timing: report 184ms (132KB), export 157ms (7.7KB), market 5ms.
+   179→- Realistic results: aggregated L-VaR ES $763K → regulatory capital $2.29M (23% of book);
+   180→  reverse stress needs 59% equity drop for -20% portfolio loss (bond hedge floors ruin);
+   181→  PLA Spearman ρ=0.998 (green zone, IMA retained).
+   182→
+   183→## Unresolved issues / risks
+   184→- Reverse-stress slider uses client-side linear interpolation from the server-computed
+   185→  20% baseline; for very different target losses (e.g. 80%) the linear approximation
+   186→  diverges slightly from a true server recompute. Acceptable for interactivity; a future
+   187→  enhancement could debounce-call the API for exact values.
+   188→- PLA convexity residual uses a fixed gamma proxy (2% of delta); real desks would
+   189→  derive this from actual option Greeks. Educational approximation only.
+   190→- FRTB liquidity aggregation approximates the full per-risk-factor horizon mixing with
+   191→  a portfolio-level asset-class-weighted combination.
+   192→
+   193→## Priority recommendations for next phase
+   194→1. **Interactive Scenario Builder** — let users define custom shock matrices and
+   195→   save them (persist via Prisma). High user value.
+   196→2. **VaR Limit Monitoring** — set per-desk/per-trader VaR limits with breach alerts
+   197→   and a limit-utilization gauge. Requires Prisma schema for limits.
+   198→3. **Time-series VaR trend across methodologies** — overlay all 5 methods' rolling VaR
+   199→   on one chart to visualize model divergence over time.
+   200→4. **Derivatives with Greeks** — add option positions (delta-gamma-vega) and show
+   201→   delta-gamma VaR approximation vs full-reval.
+   202→5. **Reverse stress via API** — move the slider to a debounced API call for exact
+   203→   non-linear recompute at any target loss.
+   204→
+   205→---
+   206→Task ID: 12 (round 3 — cron review)
+   207→Agent: main
+   208→Task: QA pass + fix hydration bug + add VaR limit monitoring, interactive scenario builder, multi-method trend overlay + styling polish.
+   209→
+   210→## Current project status (assessment)
+   211→- Rounds 1-2 delivered a stable dashboard with 5 VaR methodologies, ES, backtesting,
+   212→  decomposition, stress testing, VaR trend, L-VaR, reverse stress, P&L attribution,
+   213→  CSV export. VLM-verified all sections PASS.
+   214→- Fresh-load QA found 1 real bug: framer-motion `motion.div` with `initial`/`animate`
+   215→  props caused a hydration mismatch (server rendered `style={{opacity:0}}`, client
+   216→  animated away from it). Fixed by gating animation behind a `mounted` flag and
+   217→  removing the control-bar motion wrapper.
+   218→- No other bugs. Project was stable → proceeded to add new features.
+   219→
+   220→## Completed modifications (this round)
+   221→
+   222→### Bug fix
+   223→- src/components/var/var-dashboard.tsx — Fixed framer-motion hydration mismatch:
+   224→  `Section` wrapper now returns a plain `<div>` until mounted, then swaps to
+   225→  `motion.div`. Removed `motion.div` wrapper around ControlBar. Added
+   226→  `suppressHydrationWarning` to the `lastUpdated` timestamp (locale-dependent).
+   227→
+   228→### Database (Prisma)
+   229→- prisma/schema.prisma — added 3 models: VarLimit (scope/label/method/confidence/
+   230→  horizon/limitUsd/softLimitUsd/active), SavedScenario (name/description/type/
+   231→  shocks JSON), VarReading (audit log of VaR readings + breaches). Ran db:push.
+   232→- src/lib/var/seed.ts — seeds 5 default VaR limits (firm-wide 99%/1d, regulatory
+   233→  99%/10d, equities desk 95%/1d, crypto desk 99%/1d, rates desk 99%/1d).
+   234→
+   235→### New backend modules
+   236→- src/lib/var/limits.ts — computeLimitMonitoring(): runs VaR per each limit's
+   237→  method/confidence/horizon, computes utilization, flags ok/warning/breach, persists
+   238→  a VarReading audit row. Plus CRUD: listLimits, upsertLimit, deleteLimit,
+   239→  recentReadings.
+   240→- src/lib/var/custom-scenarios.ts — runCustomScenario(): applies a per-symbol shock
+   241→  matrix to the portfolio. Plus saveScenario, listScenarios, deleteScenario,
+   242→  seedExampleScenarios (seeds Tech Wipeout, Inflation Surprise, Gold Rally).
+   243→
+   244→### New API routes
+   245→- src/app/api/var/limits/route.ts — GET (compute monitoring) + POST (CRUD actions).
+   246→- src/app/api/var/scenarios/route.ts — GET (list + run saved) + POST (save/delete/run ad-hoc).
+   247→
+   248→### New frontend panels
+   249→- src/components/var/limit-monitoring-panel.tsx — live limit cards with utilization
+   250→  Progress bars, ok/warning/breach color coding (emerald/amber/rose), headroom USD,
+   251→  ES display, hover-to-edit buttons, full add/edit/delete limit editor dialog
+   252→  (scope, method, confidence, horizon, hard/soft limits).
+   253→- src/components/var/scenario-builder-panel.tsx — 7 per-asset shock sliders (-60% to
+   254→  +60%), quick presets (Neutral/Crash/Rally), Run/Save buttons, result chart with
+   255→  per-asset P&L bars, saved-scenarios list with one-click apply + delete.
+   256→
+   257→### Enhanced existing panel
+   258→- src/components/var/var-trend-panel.tsx — added multi-method overlay: a "Show all
+   259→  methods" toggle that overlays the other 4 methodologies' rolling VaR as dashed
+   260→  lines on the trend chart. Color-coded per method.
+   261→
+   262→### Performance optimization
+   263→- src/lib/var/trend.ts — multi-method overlay computed on a sparse grid (every 5th
+   264→  day) with forward-fill, reduced MC paths (400 vs 800), reduced test days (150 vs
+   265→  250). API time: 7.4s → 1.2s (6× faster).
+   266→
+   267→### Dashboard wiring + styling
+   268→- src/components/var/var-dashboard.tsx — wired LimitMonitoringPanel +
+   269→  ScenarioBuilderPanel into a new grid row. Added "Limit monitor" badge to header.
+   270→  Updated footer feature list. All sections animate in with staggered fade-up
+   271→  (mounted-gated to avoid hydration issues).
+   272→
+   273→## Verification results
+   274→- Fresh reload: 0 console errors, 0 hydration warnings.
+   275→- ESLint: 0 errors (fixed React Compiler useCallback dependency mismatch in 2 panels).
+   276→- DOM: 18 charts (was 17), 3 tables, 8 sliders (7 scenario + 1 reverse stress).
+   277→- All 11 sections present: VaR Trend, Liquidity, Reverse Stress, P&L Attribution,
+   278→  Limit Monitoring, Scenario Builder, Backtest, Decomposition, Stress, Market Data,
+   279→  Portfolio.
+   280→- VLM audit: all 11 sections PASS, no broken layouts, footer at bottom, dark theme
+   281→  consistent.
+   282→- Limit monitoring: 5 limits, 2 breaches (Crypto 218%, Rates 105%), 1 warning
+   283→  (Equities 87%), correct utilization bars + headroom.
+   284→- Scenario builder: 3 saved scenarios (Tech Wipeout, Inflation Surprise, Gold Rally),
+   285→  Run button produces P&L chart, sliders interactive.
+   286→- Multi-method overlay toggle present and functional.
+   287→- Mobile (390px): no horizontal overflow.
+   288→- API timing: report 1.2s (was 7.4s), limits 50ms, scenarios 10ms.
+   289→
+   290→## Unresolved issues / risks
+   291→- Multi-method trend overlay uses sparse grid (every 5th day) with forward-fill;
+   292→  the overlay lines are slightly less smooth than the primary method but still
+   293→  clearly show model divergence. Acceptable trade-off for 6× speedup.
+   294→- VaR readings are persisted on every limit-monitoring API call (audit log grows);
+   295→  no TTL/pruning yet. Low risk for demo; production would prune to N days.
+   296→
+   297→## Priority recommendations for next phase
+   298→1. **VaR breach alert feed** — show a scrolling timeline of recent breaches from the
+   299→   VarReading audit table, with severity + scope filtering.
+   300→2. **Limit utilization heatmap** — desk × time matrix showing which desks breach
+   301→   most often (uses VarReading history).
+   302→3. **Reverse stress via API** — move the slider to a debounced API call for exact
+   303→   non-linear recompute at any target loss (currently client-side linear interp).
+   304→4. **Derivatives with Greeks** — add option positions (delta-gamma-vega) and show
+   305→   delta-gamma VaR approximation vs full-reval.
+   306→5. **Scenario import/export** — JSON import of external scenario libraries
+   307→   (e.g. EBA stress test scenarios).
+   308→
+   309→---
+   310→Task ID: 13 (round 4 — cron review)
+   311→Agent: main
+   312→Task: QA pass + add Breach Alert Feed, Utilization Heatmap, Reverse Stress via API, styling polish.
+   313→
+   314→## Current project status (assessment)
+   315→- Rounds 1-3 delivered a stable dashboard with 5 VaR methodologies, ES, backtesting,
+   316→  decomposition, stress testing, VaR trend (multi-method overlay), L-VaR (FRTB),
+   317→  reverse stress, P&L attribution, limit monitoring, scenario builder, CSV export.
+   318→  VLM-verified all sections PASS.
+   319→- Fresh-load QA: 0 console errors, 0 hydration warnings, 0 lint errors.
+   320→  18 charts, 3 tables, 8 sliders, all 11 sections present.
+   321→- No bugs found. Project was stable → proceeded to add new features.
+   322→
+   323→## Completed modifications (this round)
+   324→
+   325→### Backend
+   326→- src/lib/var/limits.ts — Updated computeLimitMonitoring() to persist ALL readings
+   327→  (was only firm-wide). Added breachFeed() (recent breaches + warnings across all
+   328→  scopes with severity classification) and utilizationHeatmap() (scope × time-slot
+   329→  matrix of utilization values, padded to consistent slot count).
+   330→- src/lib/var/reverse-stress.ts — Fixed critical bug: shocks were not capped at
+   331→  -100%, producing nonsensical negative prices (e.g. -118.5% equity shock for 40%
+   332→  target loss). Now caps all per-asset shocks at -100% (price ≥ 0). Also handles
+   333→  unreachable target loss gracefully (uses max intensity, reports ruin unreachable).
+   334→- src/app/api/var/audit/route.ts — NEW: GET endpoint with action=feed (breach feed)
+   335→  and action=heatmap (utilization matrix). Returns 40 items / 12 slots.
+   336→- src/app/api/var/reverse-stress/route.ts — NEW: GET endpoint for exact non-linear
+   337→  reverse stress recompute at any target loss percentage. Used by the debounced slider.
+   338→
+   339→### New frontend panels
+   340→- src/components/var/breach-feed-panel.tsx — Real-time scrolling breach alert feed
+   341→  with severity icons (rose for breach, amber for warning), utilization %, VaR vs
+   342→  limit, over-by amount, scope/method/confidence metadata. Auto-refreshes every 30s.
+   343→  Empty state shows "all clear" with emerald checkmark.
+   344→- src/components/var/utilization-heatmap-panel.tsx — Desk × time-slot utilization
+   345→  matrix with 5-tier color scale (emerald <40% → yellow 60-80% → amber 80-100% →
+   346→  rose >100%). Hover scale animation, color legend, auto-refreshes 30s.
+   347→- src/components/var/reverse-stress-panel.tsx — REWRITTEN: slider now triggers
+   348→  debounced (350ms) API call to /api/var/reverse-stress for exact non-linear
+   349→  recompute (was client-side linear interpolation). Loading spinner during fetch.
+   350→  Falls back to report baseline at 20%.
+   351→
+   352→### Styling polish
+   353→- src/components/var/kpi-cards.tsx — Richer card design: gradient overlays via
+   354→  `via-transparent`, blur-glow accent, icon in rounded background container,
+   355→  hover lift animation (-translate-y-0.5), border highlight on hover.
+   356→- src/lib/format.ts — Added fmtTime, fmtDateTime, fmtRelative helpers.
+   357→- src/components/var/var-dashboard.tsx — Wired BreachFeedPanel + HeatmapPanel into
+   358→  new grid row. Added "Breach feed" badge to header. Updated footer feature list.
+   359→  Reverse stress panel now receives controls prop for API calls.
+   360→
+   361→## Verification results
+   362→- Fresh reload: 0 console errors, 0 hydration warnings.
+   363→- ESLint: 0 errors.
+   364→- DOM: 18 charts, 4 tables (heatmap is a table), 8 sliders.
+   365→- All 13 sections present: VaR Trend, Liquidity, Reverse Stress, P&L Attribution,
+   366→  Limit Monitoring, Scenario Builder, Breach Feed, Utilization Heatmap, Backtest,
+   367→  Decomposition, Stress, Market Data, Portfolio.
+   368→- VLM audit: all sections PASS, no broken layouts, footer at bottom.
+   369→- Breach feed: 10 items (2 breaches: Crypto 219%, Rates 106%; 1 warning: Equities 87%).
+   370→- Heatmap: 4 rows (Portfolio, Equities, Crypto, Rates) × 12 time slots, correct colors.
+   371→- Reverse stress slider: 20%→35% via arrow keys, debounced API fires, exact values.
+   372→- Reverse stress fix: 40% target now shows equity -100% (capped, was -118.5%).
+   373→- Mobile (390px): no horizontal overflow.
+   374→- API timing: report 1.0s, audit feed 7ms, heatmap 9ms, reverse-stress 5ms.
+   375→
+   376→## Unresolved issues / risks
+   377→- Breach feed & heatmap depend on accumulated VarReading rows; fresh databases need
+   378→  a few limit-monitoring API calls to populate. Auto-refresh (30s) handles this.
+   379→- Heatmap values are constant per scope when portfolio doesn't change between calls
+   380→  (expected — utilization only varies when portfolio or market data changes).
+   381→- VarReading table grows unbounded; no TTL/pruning yet. Low risk for demo.
+   382→
+   383→## Priority recommendations for next phase
+   384→1. **Derivatives with Greeks** — add option positions (delta-gamma-vega) and show
+   385→   delta-gamma VaR approximation vs full-reval. Last major feature from the roadmap.
+   386→2. **Scenario import/export** — JSON import of external scenario libraries (EBA
+   387→   stress test scenarios) + export saved scenarios as JSON.
+   388→3. **VaR limit breach email/webhook alerts** — configurable alert routing when a
+   389→   reading breaches (uses the VarReading audit table).
+   390→4. **Reading pruning** — automatic TTL cleanup of VarReading rows older than N days.
+   391→5. **Historical VaR comparison** — overlay today's VaR against the historical
+   392→   distribution of VaR estimates (where does today sit vs the 250-day range?).
+   393→
+   394→---
+   395→Task ID: 14 (round 5 — cron review)
+   396→Agent: main
+   397→Task: QA pass + add Derivatives with Greeks, Historical VaR Comparison, Scenario Import/Export + styling polish.
+   398→
+   399→## Current project status (assessment)
+   400→- Rounds 1-4 delivered a stable dashboard with 5 VaR methodologies, ES, backtesting,
+   401→  decomposition, stress testing, VaR trend (multi-method overlay), L-VaR (FRTB),
+   402→  reverse stress (API-debounced), P&L attribution, limit monitoring, scenario builder,
+   403→  breach feed, utilization heatmap, CSV export. VLM-verified all sections PASS.
+   404→- Fresh-load QA: 0 console errors, 0 hydration warnings, 0 lint errors.
+   405→  18 charts, 4 tables, 8 sliders, all 13 sections present.
+   406→- No bugs found. Project was stable → proceeded to add new features.
+   407→
+   408→## Completed modifications (this round)
+   409→
+   410→### New backend modules
+   411→- src/lib/var/derivatives.ts — Black-Scholes option pricing (bsPrice, bsGreeks for
+   412→  delta/gamma/vega/theta/rho). computeDerivativesAnalysis(): prices 3 default option
+   413→  positions (SPX call, AAPL put, BTC short call) with ATM strikes dynamically set from
+   414→  current spot. Computes portfolio-aggregated Greeks, VaR comparison (delta-only vs
+   415→  delta-gamma vs full-revaluation via bootstrap), and sensitivity table (P&L for ±N%
+   416→  moves in each underlying).
+   417→- src/lib/var/historical-comparison.ts — computeHistoricalVarComparison(): 150-day
+   418→  rolling VaR series with distribution statistics (mean/median/p5/p25/p75/p95/min/max/std),
+   419→  current VaR percentile rank, regime classification (low/normal/elevated/high), and
+   420→  distribution histogram with current-VaR bin highlighted.
+   421→
+   422→### New API routes
+   423→- src/app/api/var/derivatives/route.ts — GET (default options) + POST (custom options).
+   424→- src/app/api/var/historical-comparison/route.ts — GET with method/confidence/portfolio params.
+   425→- src/app/api/var/scenarios/route.ts — added "import" action for bulk JSON scenario import.
+   426→
+   427→### New frontend panels
+   428→- src/components/var/derivatives-panel.tsx — 5 Greek stat cards (delta/gamma/vega/theta/rho),
+   429→  VaR method comparison bar chart (delta-only vs delta-gamma vs full-reval), option positions
+   430→  table (11 columns: symbol/type/qty/strike/mat/IV/delta/gamma/vega/price/MV), P&L sensitivity
+   431→  line chart (full revaluation across ±20% moves), gamma-adjustment badge.
+   432→- src/components/var/historical-comparison-panel.tsx — gradient KPI cards (today's VaR +
+   433→  percentile rank), histogram with current-VaR reference line + highlighted bin, 4-stat
+   434→  distribution panel (P5/median/P95/std), regime badge (low/normal/elevated/high).
+   435→- src/components/var/scenario-builder-panel.tsx — added Import (JSON file upload) and
+   436→  Export (JSON download) buttons for scenario library portability.
+   437→
+   438→### Dashboard wiring
+   439→- src/components/var/var-dashboard.tsx — wired DerivativesPanel + HistoricalComparisonPanel
+   440→  into new grid row. Added "Greeks" badge to header. Updated footer feature list.
+   441→
+   442→## Verification results
+   443→- Fresh reload: 0 console errors, 0 hydration warnings.
+   444→- ESLint: 0 errors (fixed JSX parsing error: `< 25th` → `below 25th`).
+   445→- DOM: 24 charts (was 18), 5 tables, 8 sliders.
+   446→- All 15 sections present: VaR Trend, Liquidity, Reverse Stress, P&L Attribution, Limit
+   447→  Monitoring, Scenario Builder, Breach Feed, Utilization Heatmap, Derivatives & Greeks,
+   448→  Historical VaR Comparison, Backtest, Decomposition, Stress, Market Data, Portfolio.
+   449→- VLM audit: all sections PASS, no broken layouts, footer at bottom.
+   450→- Derivatives: 3 option positions with correct Greeks (SPX call delta 0.572, gamma 0.0025;
+   451→  AAPL put delta -0.283; BTC short call delta 0.263). VaR comparison: delta-only $286K,
+   452→  delta-gamma $215K (gamma adj -24.6%), full-reval $210K — gamma correctly reduces risk
+   453→  for the short call position.
+   454→- Historical comparison: current VaR $279K at 50th percentile, "normal" regime, histogram
+   455→  highlights the current bin.
+   456→- Scenario import/export: both buttons present, export downloads JSON, import accepts JSON.
+   457→- Mobile (390px): no horizontal overflow.
+   458→- API timing: report 1.0s, derivatives 17ms, historical 40ms.
+   459→
+   460→## Unresolved issues / risks
+   461→- Default option positions use 3 hardcoded specs (SPX/AAPL/BTC); a production system would
+   462→  let users add/edit option positions via the UI (currently API-only).
+   463→- Vega is quoted per 1.00 (100 percentage points) vol change in Black-Scholes; the display
+   464→  divides by 100 for "per 1% vol" convention — clearly labeled.
+   465→- Historical comparison recomputes 150 rolling VaR estimates (no caching); takes ~40ms
+   466→  which is acceptable.
+   467→
+   468→## Priority recommendations for next phase
+   469→1. **Option position editor UI** — let users add/edit/remove option positions interactively
+   470→   (currently uses hardcoded defaults). The API already accepts custom positions via POST.
+   471→2. **VaR breach email/webhook alerts** — configurable alert routing when a reading breaches.
+   472→3. **Reading pruning** — automatic TTL cleanup of VarReading rows older than N days.
+   473→4. **Multi-portfolio support** — save/load named portfolios (currently single portfolio).
+   474→5. **Risk factor modellability assessment** — FRTB NMRF identification based on data
+   475→   availability per risk factor.
+   476→
+   477→---
+   478→Task ID: 15 (round 6 — cron review)
+   479→Agent: main
+   480→Task: QA pass + add Risk Factor Modellability (FRTB NMRF), Option Position Editor UI, VarReading auto-pruning + styling polish.
+   481→
+   482→## Current project status (assessment)
+   483→- Rounds 1-5 delivered a stable dashboard with 5 VaR methodologies, ES, backtesting,
+   484→  decomposition, stress testing, VaR trend, L-VaR, reverse stress (API-debounced),
+   485→  P&L attribution, limit monitoring, scenario builder (import/export), breach feed,
+   486→  utilization heatmap, derivatives with Greeks, historical VaR comparison, CSV export.
+   487→  VLM-verified all sections PASS.
+   488→- Fresh-load QA: 0 console errors, 0 hydration warnings, 0 lint errors.
+   489→  24 charts, 5 tables, 8 sliders, all 15 sections present.
+   490→- No bugs found. Project was stable → proceeded to add new features.
+   491→
+   492→## Completed modifications (this round)
+   493→
+   494→### New backend modules
+   495→- src/lib/var/modellability.ts — computeModellability(): FRTB MAR33 risk factor
+   496→  modellability assessment. For each risk factor: counts real-price observations
+   497→  (last 252 days), finds largest gap between consecutive observations, determines
+   498→  modellable status (≥ 24 obs, ≤ 21-day gap), computes NMRF capital surcharge
+   499→  (2.5× stressed ES for non-modellable factors), assigns FRTB liquidity horizon
+   500→  per asset class. Returns overall assessment (excellent/good/warning/poor).
+   501→- src/lib/var/limits.ts — added pruneReadings(keepN=200): keeps the most recent N
+   502→  rows per scope, deletes older. Auto-called in computeLimitMonitoring() to bound
+   503→  table growth.
+   504→
+   505→### New API routes
+   506→- src/app/api/var/modellability/route.ts — GET endpoint returning the modellability
+   507→  report for the current portfolio + market data.
+   508→
+   509→### New frontend panels
+   510→- src/components/var/modellability-panel.tsx — FRTB NMRF assessment panel:
+   511→  4 summary cards (total/modellable/non-modellable/NMRF surcharge), modellable-%
+   512→  progress bar, assessment badge (excellent/good/warning/poor), factors table
+   513→  (7 columns: risk factor, class, observations, largest gap, liquidity horizon,
+   514→  status, NMRF surcharge), color-coded status icons (emerald check / rose X),
+   515→  explanatory text.
+   516→- src/components/var/derivatives-panel.tsx — ENHANCED: added "Add Position" button
+   517→  that opens a full option position editor dialog (symbol, underlying, type,
+   518→  direction, quantity, contract size, strike, maturity, IV, risk-free rate).
+   519→  Reuses the same dialog pattern as the VaR limit editor.
+   520→
+   521→### Dashboard wiring
+   522→- src/components/var/var-dashboard.tsx — wired ModellabilityPanel into a new full-width
+   523→  row. Added "NMRF" badge to header. Updated footer feature list.
+   524→
+   525→## Verification results
+   526→- Fresh reload: 0 console errors, 0 hydration warnings.
+   527→- ESLint: 0 errors.
+   528→- DOM: 24 charts, 6 tables (was 5), 8 sliders.
+   529→- All 16 sections present: VaR Trend, Liquidity, Reverse Stress, P&L Attribution,
+   530→  Limit Monitoring, Scenario Builder, Breach Feed, Utilization Heatmap, Derivatives
+   531→  & Greeks, Historical VaR Comparison, Risk Factor Modellability, Backtest,
+   532→  Decomposition, Stress, Market Data, Portfolio.
+   533→- VLM audit: all sections PASS, no broken layouts, footer at bottom.
+   534→- Modellability: 7 factors, all 7 modellable (252 observations each, 1-day gaps),
+   535→  assessment "excellent", $0 NMRF surcharge.
+   536→- Option editor: opens via "Position" button, 7 inputs + 3 selects, dialog title
+   537→  "Add Option Position".
+   538→- VarReading auto-pruning: keeps ≤ 200 rows per scope, bounds table growth.
+   539→- Mobile (390px): no horizontal overflow.
+   540→- API timing: report 1.1s, modellability 5ms, derivatives 15ms.
+   541→
+   542→## Unresolved issues / risks
+   543→- Option position editor saves locally (re-fetches defaults); a full implementation
+   544→  would persist the option book to a Prisma table and support edit/delete. The API
+   545→  already accepts custom positions via POST — only the persistence layer is missing.
+   546→- Modellability uses the simulated price series; real implementations would query
+   547→  a market-data availability table for actual observation counts.
+   548→- NMRF surcharge is an approximation (2.5× stressed ES); FRTB prescribes specific
+   549→  shock factors per risk factor type.
+   550→
+   551→## Priority recommendations for next phase
+   552→1. **Persist option positions** — add an OptionPosition Prisma model so the option
+   553→   book survives page reloads; wire the editor's save/delete to the API.
+   554→2. **VaR breach email/webhook alerts** — configurable alert routing when a reading
+   555→   breaches (uses the VarReading audit table).
+   556→3. **Multi-portfolio support** — save/load named portfolios (currently single portfolio).
+   557→4. **NMRF scenario explorer** — interactive tool to see how capital changes as risk
+   558→   factors lose modellability (e.g. simulate data outages).
+   559→5. **PDF export** — generate a formatted PDF report (in addition to the current CSV).
+   560→

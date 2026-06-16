@@ -24,6 +24,9 @@ import { UtilizationHeatmapPanel } from "./utilization-heatmap-panel";
 import { DerivativesPanel } from "./derivatives-panel";
 import { HistoricalComparisonPanel } from "./historical-comparison-panel";
 import { ModellabilityPanel } from "./modellability-panel";
+import { ConcentrationPanel } from "./concentration-panel";
+import { PerformancePanel } from "./performance-panel";
+import { WhatIfSimulatorPanel } from "./whatif-simulator-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -49,6 +52,26 @@ function Section({ children, i }: { children: React.ReactNode; i: number }) {
     <motion.div custom={i} variants={fadeUp} initial="hidden" animate="show">
       {children}
     </motion.div>
+  );
+}
+
+// A subtle horizontal divider that groups panels into thematic sections.
+function SectionDivider({ label, hint }: { label: string; hint?: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-4 pb-1">
+      <div className="h-px w-12 bg-gradient-to-r from-transparent to-border" />
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/80">
+          {label}
+        </span>
+        {hint && (
+          <span className="hidden sm:inline text-[10px] text-muted-foreground">
+            · {hint}
+          </span>
+        )}
+      </div>
+      <div className="h-px flex-1 bg-gradient-to-r from-border via-border/40 to-transparent" />
+    </div>
   );
 }
 
@@ -79,6 +102,9 @@ export function VarDashboard() {
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Reverse stress</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-4/15 text-chart-4 border-chart-4/30">Greeks</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">NMRF</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-4/15 text-chart-4 border-chart-4/30">Concentration</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Sharpe</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-5/15 text-chart-5 border-chart-5/30">What-If</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-rose-500/15 text-rose-500 border-rose-500/30">Breach feed</Badge>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -123,6 +149,8 @@ export function VarDashboard() {
               <KpiCards report={report} method={controls.method} />
             </Section>
 
+            <SectionDivider label="Risk Measurement" hint="5 methodologies · ES · P&L distribution" />
+
             {/* Methodology comparison + P&L distribution */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <Section i={1}><MethodologyComparison report={report} activeMethod={controls.method} /></Section>
@@ -147,6 +175,8 @@ export function VarDashboard() {
               <Section i={8}><StressPanel report={report} /></Section>
             </div>
 
+            <SectionDivider label="Stress & Attribution" hint="Reverse stress · PLA · scenario builder" />
+
             {/* Reverse stress + P&L attribution */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <Section i={9}><ReverseStressPanel report={report} controls={controls} /></Section>
@@ -165,6 +195,8 @@ export function VarDashboard() {
               <Section i={14}><UtilizationHeatmapPanel /></Section>
             </div>
 
+            <SectionDivider label="Advanced Analytics" hint="Greeks · NMRF · concentration · performance" />
+
             {/* Derivatives/Greeks + Historical VaR comparison (round 5) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <Section i={15}><DerivativesPanel /></Section>
@@ -174,14 +206,27 @@ export function VarDashboard() {
             {/* Modellability assessment (round 6) */}
             <Section i={17}><ModellabilityPanel /></Section>
 
+            {/* Concentration + Performance (round 7) */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <Section i={18}><ConcentrationPanel controls={controls} /></Section>
+              <Section i={19}><PerformancePanel controls={controls} /></Section>
+            </div>
+
+            <SectionDivider label="Interactive Simulator" hint="live what-if weight rebalancing" />
+
+            {/* What-If Simulator (round 7) — full-width */}
+            <Section i={20}><WhatIfSimulatorPanel controls={controls} report={report} /></Section>
+
+            <SectionDivider label="Market & Holdings" hint="reference data" />
+
             {/* Market + Portfolio */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={18}><MarketPanel market={market} /></Section>
-              <Section i={19}><PortfolioPanel report={report} /></Section>
+              <Section i={21}><MarketPanel market={market} /></Section>
+              <Section i={22}><PortfolioPanel report={report} /></Section>
             </div>
 
             {/* Methodology reference */}
-            <Section i={20}>
+            <Section i={23}>
               <MethodologyReference />
             </Section>
           </>
@@ -199,7 +244,7 @@ export function VarDashboard() {
           <div className="flex items-center gap-3 flex-wrap justify-center">
             <span>Parametric · Historical · Monte Carlo · Filtered HS · EVT</span>
             <span>·</span>
-            <span>L-VaR · PLA · Reverse stress · Greeks · NMRF · Limit monitoring · Scenario builder · Breach feed · Heatmap · Historical comparison · Kupiec · Christoffersen · Basel III</span>
+            <span>L-VaR · PLA · Reverse stress · Greeks · NMRF · Concentration · Sharpe · What-If · Limit monitoring · Scenario builder · Breach feed · Heatmap · Historical comparison · Kupiec · Christoffersen · Basel III</span>
           </div>
         </div>
       </footer>
