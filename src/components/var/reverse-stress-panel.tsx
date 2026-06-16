@@ -16,8 +16,9 @@ import {
   ReferenceLine,
   LabelList,
 } from "recharts";
-import { AlertOctagon, AlertTriangle, ShieldCheck } from "lucide-react";
-import type { FullReport, AssetClass } from "@/lib/var/types";
+import { AlertOctagon, AlertTriangle, ShieldCheck, Loader2 } from "lucide-react";
+import type { FullReport, AssetClass, ReverseStressResult } from "@/lib/var/types";
+import type { VarControls } from "./use-var-data";
 import { fmtUSD, fmtPct } from "@/lib/format";
 
 const CLASS_COLOR: Record<AssetClass, string> = {
@@ -28,31 +29,52 @@ const CLASS_COLOR: Record<AssetClass, string> = {
   crypto: "var(--chart-4)",
 };
 
-export function ReverseStressPanel({ report }: { report: FullReport }) {
+export function ReverseStressPanel({
+  report,
+  controls,
+}: {
+  report: FullReport;
+  controls: VarControls;
+}) {
   const [targetPct, setTargetPct] = React.useState(20);
+  const [exactResult, setExactResult] = React.useState<ReverseStressResult | null>(null);
+  const [fetching, setFetching] = React.useState(false);
 
-  // The reverse stress is computed server-side at 20% — we interpolate the
-  // shock factor linearly for the slider (the relationship is near-linear
-  // for moderate losses). This keeps the interaction client-side & instant.
-  const rs = report.reverseStress;
-  const baseTarget = rs.targetLossPct * 100;
-  const baseShock = rs.shockFactor;
-  // Linear scaling from origin: shockFactor(t) ≈ 1 + (baseShock-1) * (t/baseTarget)
-  const scaledShock = 1 + (baseShock - 1) * (targetPct / baseTarget);
+  // The initial report has the 20% baseline.
+  const rs = exactResult ?? report.reverseStress;
+
+  const positionsStr = controls.positions.map((p) => `${p.symbol}:${p.quantity}`).join(",");
+
+  // Debounced fetch for exact non-linear recompute whenever the slider changes.
+  React.useEffect(() => {
+    if (targetPct === 20) {
+      setExactResult(null); // use the report baseline
+      return;
+    }
+    setFetching(true);
+    const timer = setTimeout(() => {
+      fetch(`/api/var/reverse-stress?seed=${controls.seed}&totalValue=${controls.totalValue}&positions=${encodeURIComponent(positionsStr)}&targetLossPct=${targetPct / 100}`)
+        .then((r) => r.json())
+        .then((d) => { if (d.ok) setExactResult(d.result); })
+        .finally(() => setFetching(false));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [targetPct, controls.seed, controls.totalValue, positionsStr]);
+
   const scaledLoss = -targetPct * report.portfolio.totalValue / 100;
-  const equityDrop = Math.max(0, (1 - scaledShock) * 100);
+  const equityShock = rs.perAssetClass.find((p) => p.assetClass === "equity")?.shock ?? 0;
+  const equityDrop = Math.abs(equityShock) * 100;
+  const worseThanLehman = equityDrop > 32;
+  const worseThanCovid = equityDrop > 34;
+  const ruinFloor = rs.marginToRuin >= 1;
 
   const chartData = rs.perAssetClass
     .map((a) => ({
       assetClass: a.assetClass,
-      shock: Math.round(a.shock * (targetPct / baseTarget) * 1000) / 10,
-      pnl: Math.round(a.pnl * (targetPct / baseTarget)),
+      shock: Math.round(a.shock * 1000) / 10,
+      pnl: Math.round(a.pnl),
     }))
     .sort((a, b) => a.pnl - b.pnl);
-
-  const worseThanLehman = equityDrop > 32;
-  const worseThanCovid = equityDrop > 34;
-  const ruinFloor = rs.marginToRuin >= 1;
 
   return (
     <Card>
@@ -62,9 +84,10 @@ export function ReverseStressPanel({ report }: { report: FullReport }) {
             <CardTitle className="text-base flex items-center gap-2">
               <AlertOctagon className="h-4 w-4 text-rose-500" />
               Reverse Stress Testing
+              {fetching && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             </CardTitle>
             <CardDescription>
-              What shock magnitude would break the book? Drag the target loss to find the breaking scenario.
+              What shock magnitude would break the book? Drag the target loss for an exact non-linear recompute.
             </CardDescription>
           </div>
           <Badge variant="outline" className={ruinFloor ? "border-emerald-500/40 text-emerald-500" : "border-rose-500/40 text-rose-500"}>
@@ -148,7 +171,7 @@ export function ReverseStressPanel({ report }: { report: FullReport }) {
           )}
         </div>
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Reverse stress testing asks the inverse question: rather than estimating loss for a given scenario, it finds the scenario that produces an unacceptable loss. Regulators require it to ensure management understands what could break the firm.
+          Reverse stress testing asks the inverse question: rather than estimating loss for a given scenario, it finds the scenario that produces an unacceptable loss. Regulators require it to ensure management understands what could break the firm. The slider triggers an exact server-side binary search (not a linear approximation).
         </p>
       </CardContent>
     </Card>

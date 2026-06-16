@@ -59,24 +59,22 @@ export async function computeLimitMonitoring(
   const worstStatus: "ok" | "warning" | "breach" =
     breachCount > 0 ? "breach" : warningCount > 0 ? "warning" : "ok";
 
-  // Persist a reading for the firm-wide limit (for audit history).
+  // Persist ALL readings (for audit history + breach alert feed + heatmap).
+  // This creates one row per limit per API call, giving a rich time series.
   try {
-    const firmReading = readings.find((r) => r.limit.scope === "portfolio:default" && r.limit.horizon === 1);
-    if (firmReading) {
-      await db.varReading.create({
-        data: {
-          scope: firmReading.limit.scope,
-          method: firmReading.limit.method,
-          confidence: firmReading.limit.confidence,
-          horizon: firmReading.limit.horizon,
-          varUsd: firmReading.var,
-          esUsd: firmReading.es,
-          limitUsd: firmReading.limit.limitUsd,
-          utilization: firmReading.utilization,
-          breached: firmReading.status === "breach",
-        },
-      });
-    }
+    await db.varReading.createMany({
+      data: readings.map((r) => ({
+        scope: r.limit.scope,
+        method: r.limit.method,
+        confidence: r.limit.confidence,
+        horizon: r.limit.horizon,
+        varUsd: r.var,
+        esUsd: r.es,
+        limitUsd: r.limit.limitUsd,
+        utilization: r.utilization,
+        breached: r.status === "breach",
+      })),
+    });
   } catch {
     // persistence is best-effort
   }
@@ -144,3 +142,53 @@ export async function recentReadings(scope: string, limit: number = 30) {
     }))
     .reverse();
 }
+
+/** Breach alert feed: recent breaches + warnings across all scopes. */
+export async function breachFeed(limit: number = 30) {
+  const rows = await db.varReading.findMany({
+    where: {
+      OR: [{ breached: true }, { utilization: { gte: 0.8 } }],
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    date: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+    scope: r.scope,
+    method: r.method,
+    confidence: r.confidence,
+    horizon: r.horizon,
+    var: r.varUsd,
+    limit: r.limitUsd ?? 0,
+    utilization: r.utilization ?? 0,
+    severity: r.breached ? "breach" as const : "warning" as const,
+  }));
+}
+
+/** Limit utilization heatmap: scope × time-slot matrix of utilization values. */
+export async function utilizationHeatmap(slots: number = 12) {
+  // Get all scopes that have limits.
+  const limits = await db.varLimit.findMany({ where: { active: true } });
+  const scopes = [...new Set(limits.map((l) => l.scope))];
+
+  // For each scope, get the most recent `slots` readings.
+  const matrix: { scope: string; label: string; values: (number | null)[] }[] = [];
+  for (const scope of scopes) {
+    const rows = await db.varReading.findMany({
+      where: { scope },
+      orderBy: { createdAt: "desc" },
+      take: slots,
+    });
+    const label = limits.find((l) => l.scope === scope)?.label ?? scope;
+    const values: (number | null)[] = [];
+    // Pad to `slots` length, oldest first.
+    const padded = [...rows].reverse();
+    for (let i = 0; i < slots; i++) {
+      values.push(padded[i] ? (padded[i].utilization ?? 0) : null);
+    }
+    matrix.push({ scope, label, values });
+  }
+  return matrix;
+}
+

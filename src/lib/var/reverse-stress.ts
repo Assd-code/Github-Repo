@@ -38,7 +38,9 @@ function solveForIntensity(
     for (let i = 0; i < n; i++) {
       const ac = market.assets[i].assetClass;
       const shockPct = CLASS_SENSITIVITY[ac] * intensity * 0.20;
-      const newPrice = lastPrices[i] * (1 + shockPct);
+      // Cap the shock so price never goes below zero (max -100% shock).
+      const cappedShock = Math.max(-1, shockPct);
+      const newPrice = lastPrices[i] * (1 + cappedShock);
       pnl += (newPrice - lastPrices[i]) * (marketValues[i] / lastPrices[i]);
     }
     return pnl;
@@ -89,11 +91,17 @@ export function computeReverseStress(
     targetLossPct
   );
 
-  // Derive per-asset-class shocks at the solved intensity.
+  // If the target loss is unreachable even at max intensity (e.g. bond hedge
+  // floors the book), use max intensity to show the worst achievable loss.
+  const effectiveIntensity = intensity ?? 10.0;
+  const unreachable = intensity === null;
+
+  // Derive per-asset-class shocks at the solved intensity (capped at -100%).
   const perClassMap = new Map<AssetClass, { shock: number; pnl: number }>();
   for (let i = 0; i < n; i++) {
     const ac = market.assets[i].assetClass;
-    const shockPct = CLASS_SENSITIVITY[ac] * intensity * 0.20;
+    const rawShock = CLASS_SENSITIVITY[ac] * effectiveIntensity * 0.20;
+    const shockPct = Math.max(-1, rawShock); // cap: price can't go below zero
     const newPrice = lastPrices[i] * (1 + shockPct);
     const pnl = (newPrice - lastPrices[i]) * (marketValues[i] / lastPrices[i]);
     const existing = perClassMap.get(ac);
@@ -132,9 +140,9 @@ export function computeReverseStress(
   // out under uniform stress (e.g. an unbreakable bond hedge), margin = 1 (unreachable).
   const ruinIntensity = solveForIntensity(market, weights, marketValues, portfolio.totalValue, 1.0);
   const marginToRuin =
-    ruinIntensity === null
+    ruinIntensity === null || unreachable
       ? 1.0 // ruin is unreachable — the book has an effective floor
-      : (ruinIntensity - intensity) / ruinIntensity;
+      : (ruinIntensity - effectiveIntensity) / ruinIntensity;
 
   return {
     targetLossPct,

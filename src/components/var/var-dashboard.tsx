@@ -19,6 +19,8 @@ import { ReverseStressPanel } from "./reverse-stress-panel";
 import { PnlAttributionPanel } from "./pnl-attribution-panel";
 import { LimitMonitoringPanel } from "./limit-monitoring-panel";
 import { ScenarioBuilderPanel } from "./scenario-builder-panel";
+import { BreachFeedPanel } from "./breach-feed-panel";
+import { UtilizationHeatmapPanel } from "./utilization-heatmap-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -73,6 +75,7 @@ export function VarDashboard() {
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">L-VaR</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Reverse stress</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-4/15 text-chart-4 border-chart-4/30">Limit monitor</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-rose-500/15 text-rose-500 border-rose-500/30">Breach feed</Badge>
           </div>
           <div className="ml-auto flex items-center gap-2">
             {lastUpdated && (
@@ -142,7 +145,7 @@ export function VarDashboard() {
 
             {/* Reverse stress + P&L attribution */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={9}><ReverseStressPanel report={report} /></Section>
+              <Section i={9}><ReverseStressPanel report={report} controls={controls} /></Section>
               <Section i={10}><PnlAttributionPanel report={report} /></Section>
             </div>
 
@@ -152,14 +155,20 @@ export function VarDashboard() {
               <Section i={12}><ScenarioBuilderPanel controls={controls} /></Section>
             </div>
 
+            {/* Breach feed + Utilization heatmap (round 4) */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <Section i={13}><BreachFeedPanel /></Section>
+              <Section i={14}><UtilizationHeatmapPanel /></Section>
+            </div>
+
             {/* Market + Portfolio */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={13}><MarketPanel market={market} /></Section>
-              <Section i={14}><PortfolioPanel report={report} /></Section>
+              <Section i={15}><MarketPanel market={market} /></Section>
+              <Section i={16}><PortfolioPanel report={report} /></Section>
             </div>
 
             {/* Methodology reference */}
-            <Section i={15}>
+            <Section i={17}>
               <MethodologyReference />
             </Section>
           </>
@@ -177,7 +186,7 @@ export function VarDashboard() {
           <div className="flex items-center gap-3 flex-wrap justify-center">
             <span>Parametric · Historical · Monte Carlo · Filtered HS · EVT</span>
             <span>·</span>
-            <span>L-VaR · PLA · Reverse stress · Limit monitoring · Scenario builder · Kupiec · Christoffersen · Basel III</span>
+            <span>L-VaR · PLA · Reverse stress · Limit monitoring · Scenario builder · Breach feed · Heatmap · Kupiec · Christoffersen · Basel III</span>
           </div>
         </div>
       </footer>

@@ -89,14 +89,20 @@ export function KpiCards({
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       {cards.map((c) => (
-        <Card key={c.title} className="relative overflow-hidden">
-          <div className={`absolute inset-0 bg-gradient-to-br ${c.ring} to-transparent opacity-60`} />
+        <Card
+          key={c.title}
+          className="relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5 hover:border-primary/30"
+        >
+          <div className={`absolute inset-0 bg-gradient-to-br ${c.ring} via-transparent to-transparent opacity-70`} />
+          <div className="absolute top-0 right-0 h-20 w-20 rounded-full blur-2xl opacity-20" style={{ background: "var(--primary)" }} />
           <CardHeader className="relative pb-2 pt-3 px-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 {c.title}
               </CardTitle>
-              <c.icon className={`h-4 w-4 ${c.accent}`} />
+              <div className={`flex h-7 w-7 items-center justify-center rounded-md bg-background/50 ${c.accent}`}>
+                <c.icon className="h-4 w-4" />
+              </div>
             </div>
           </CardHeader>
           <CardContent className="relative px-4 pb-3">

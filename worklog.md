@@ -305,3 +305,88 @@ Task: QA pass + fix hydration bug + add VaR limit monitoring, interactive scenar
    delta-gamma VaR approximation vs full-reval.
 5. **Scenario import/export** — JSON import of external scenario libraries
    (e.g. EBA stress test scenarios).
+
+---
+Task ID: 13 (round 4 — cron review)
+Agent: main
+Task: QA pass + add Breach Alert Feed, Utilization Heatmap, Reverse Stress via API, styling polish.
+
+## Current project status (assessment)
+- Rounds 1-3 delivered a stable dashboard with 5 VaR methodologies, ES, backtesting,
+  decomposition, stress testing, VaR trend (multi-method overlay), L-VaR (FRTB),
+  reverse stress, P&L attribution, limit monitoring, scenario builder, CSV export.
+  VLM-verified all sections PASS.
+- Fresh-load QA: 0 console errors, 0 hydration warnings, 0 lint errors.
+  18 charts, 3 tables, 8 sliders, all 11 sections present.
+- No bugs found. Project was stable → proceeded to add new features.
+
+## Completed modifications (this round)
+
+### Backend
+- src/lib/var/limits.ts — Updated computeLimitMonitoring() to persist ALL readings
+  (was only firm-wide). Added breachFeed() (recent breaches + warnings across all
+  scopes with severity classification) and utilizationHeatmap() (scope × time-slot
+  matrix of utilization values, padded to consistent slot count).
+- src/lib/var/reverse-stress.ts — Fixed critical bug: shocks were not capped at
+  -100%, producing nonsensical negative prices (e.g. -118.5% equity shock for 40%
+  target loss). Now caps all per-asset shocks at -100% (price ≥ 0). Also handles
+  unreachable target loss gracefully (uses max intensity, reports ruin unreachable).
+- src/app/api/var/audit/route.ts — NEW: GET endpoint with action=feed (breach feed)
+  and action=heatmap (utilization matrix). Returns 40 items / 12 slots.
+- src/app/api/var/reverse-stress/route.ts — NEW: GET endpoint for exact non-linear
+  reverse stress recompute at any target loss percentage. Used by the debounced slider.
+
+### New frontend panels
+- src/components/var/breach-feed-panel.tsx — Real-time scrolling breach alert feed
+  with severity icons (rose for breach, amber for warning), utilization %, VaR vs
+  limit, over-by amount, scope/method/confidence metadata. Auto-refreshes every 30s.
+  Empty state shows "all clear" with emerald checkmark.
+- src/components/var/utilization-heatmap-panel.tsx — Desk × time-slot utilization
+  matrix with 5-tier color scale (emerald <40% → yellow 60-80% → amber 80-100% →
+  rose >100%). Hover scale animation, color legend, auto-refreshes 30s.
+- src/components/var/reverse-stress-panel.tsx — REWRITTEN: slider now triggers
+  debounced (350ms) API call to /api/var/reverse-stress for exact non-linear
+  recompute (was client-side linear interpolation). Loading spinner during fetch.
+  Falls back to report baseline at 20%.
+
+### Styling polish
+- src/components/var/kpi-cards.tsx — Richer card design: gradient overlays via
+  `via-transparent`, blur-glow accent, icon in rounded background container,
+  hover lift animation (-translate-y-0.5), border highlight on hover.
+- src/lib/format.ts — Added fmtTime, fmtDateTime, fmtRelative helpers.
+- src/components/var/var-dashboard.tsx — Wired BreachFeedPanel + HeatmapPanel into
+  new grid row. Added "Breach feed" badge to header. Updated footer feature list.
+  Reverse stress panel now receives controls prop for API calls.
+
+## Verification results
+- Fresh reload: 0 console errors, 0 hydration warnings.
+- ESLint: 0 errors.
+- DOM: 18 charts, 4 tables (heatmap is a table), 8 sliders.
+- All 13 sections present: VaR Trend, Liquidity, Reverse Stress, P&L Attribution,
+  Limit Monitoring, Scenario Builder, Breach Feed, Utilization Heatmap, Backtest,
+  Decomposition, Stress, Market Data, Portfolio.
+- VLM audit: all sections PASS, no broken layouts, footer at bottom.
+- Breach feed: 10 items (2 breaches: Crypto 219%, Rates 106%; 1 warning: Equities 87%).
+- Heatmap: 4 rows (Portfolio, Equities, Crypto, Rates) × 12 time slots, correct colors.
+- Reverse stress slider: 20%→35% via arrow keys, debounced API fires, exact values.
+- Reverse stress fix: 40% target now shows equity -100% (capped, was -118.5%).
+- Mobile (390px): no horizontal overflow.
+- API timing: report 1.0s, audit feed 7ms, heatmap 9ms, reverse-stress 5ms.
+
+## Unresolved issues / risks
+- Breach feed & heatmap depend on accumulated VarReading rows; fresh databases need
+  a few limit-monitoring API calls to populate. Auto-refresh (30s) handles this.
+- Heatmap values are constant per scope when portfolio doesn't change between calls
+  (expected — utilization only varies when portfolio or market data changes).
+- VarReading table grows unbounded; no TTL/pruning yet. Low risk for demo.
+
+## Priority recommendations for next phase
+1. **Derivatives with Greeks** — add option positions (delta-gamma-vega) and show
+   delta-gamma VaR approximation vs full-reval. Last major feature from the roadmap.
+2. **Scenario import/export** — JSON import of external scenario libraries (EBA
+   stress test scenarios) + export saved scenarios as JSON.
+3. **VaR limit breach email/webhook alerts** — configurable alert routing when a
+   reading breaches (uses the VarReading audit table).
+4. **Reading pruning** — automatic TTL cleanup of VarReading rows older than N days.
+5. **Historical VaR comparison** — overlay today's VaR against the historical
+   distribution of VaR estimates (where does today sit vs the 250-day range?).
