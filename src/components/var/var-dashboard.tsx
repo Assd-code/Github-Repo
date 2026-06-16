@@ -2,39 +2,51 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { useVarData } from "./use-var-data";
 import { ControlBar } from "./control-bar";
 import { KpiCards } from "./kpi-cards";
-import { MethodologyComparison } from "./methodology-comparison";
-import { PnlDistribution } from "./pnl-distribution";
-import { BacktestPanel } from "./backtest-panel";
-import { McPathsPanel } from "./mc-paths-panel";
-import { DecompositionPanel } from "./decomposition-panel";
-import { StressPanel } from "./stress-panel";
-import { MarketPanel } from "./market-panel";
-import { PortfolioPanel } from "./portfolio-panel";
-import { VarTrendPanel } from "./var-trend-panel";
-import { LiquidityPanel } from "./liquidity-panel";
-import { ReverseStressPanel } from "./reverse-stress-panel";
-import { PnlAttributionPanel } from "./pnl-attribution-panel";
-import { LimitMonitoringPanel } from "./limit-monitoring-panel";
-import { ScenarioBuilderPanel } from "./scenario-builder-panel";
-import { BreachFeedPanel } from "./breach-feed-panel";
-import { UtilizationHeatmapPanel } from "./utilization-heatmap-panel";
-import { DerivativesPanel } from "./derivatives-panel";
-import { HistoricalComparisonPanel } from "./historical-comparison-panel";
-import { ModellabilityPanel } from "./modellability-panel";
-import { ConcentrationPanel } from "./concentration-panel";
-import { PerformancePanel } from "./performance-panel";
-import { WhatIfSimulatorPanel } from "./whatif-simulator-panel";
-import { OptimizerPanel } from "./optimizer-panel";
-import { CorrelationRegimePanel } from "./correlation-regime-panel";
-import { ExceptionDeepDivePanel } from "./exception-deepdive-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Activity, AlertCircle, BookOpen, Layers3 } from "lucide-react";
+
+// Dynamic imports: panels are compiled on-demand by Turbopack, preventing the
+// initial page load from OOM-killing the dev server with 8GB cgroup limit.
+// ssr: false because these are all client components with browser-only APIs.
+const MethodologyComparison = dynamic(() => import("./methodology-comparison").then(m => m.MethodologyComparison), { ssr: false, loading: () => <PanelSkeleton /> });
+const PnlDistribution = dynamic(() => import("./pnl-distribution").then(m => m.PnlDistribution), { ssr: false, loading: () => <PanelSkeleton /> });
+const BacktestPanel = dynamic(() => import("./backtest-panel").then(m => m.BacktestPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const McPathsPanel = dynamic(() => import("./mc-paths-panel").then(m => m.McPathsPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const DecompositionPanel = dynamic(() => import("./decomposition-panel").then(m => m.DecompositionPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const StressPanel = dynamic(() => import("./stress-panel").then(m => m.StressPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const MarketPanel = dynamic(() => import("./market-panel").then(m => m.MarketPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const PortfolioPanel = dynamic(() => import("./portfolio-panel").then(m => m.PortfolioPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const VarTrendPanel = dynamic(() => import("./var-trend-panel").then(m => m.VarTrendPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const LiquidityPanel = dynamic(() => import("./liquidity-panel").then(m => m.LiquidityPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const ReverseStressPanel = dynamic(() => import("./reverse-stress-panel").then(m => m.ReverseStressPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const PnlAttributionPanel = dynamic(() => import("./pnl-attribution-panel").then(m => m.PnlAttributionPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const LimitMonitoringPanel = dynamic(() => import("./limit-monitoring-panel").then(m => m.LimitMonitoringPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const ScenarioBuilderPanel = dynamic(() => import("./scenario-builder-panel").then(m => m.ScenarioBuilderPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const BreachFeedPanel = dynamic(() => import("./breach-feed-panel").then(m => m.BreachFeedPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const UtilizationHeatmapPanel = dynamic(() => import("./utilization-heatmap-panel").then(m => m.UtilizationHeatmapPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const DerivativesPanel = dynamic(() => import("./derivatives-panel").then(m => m.DerivativesPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const HistoricalComparisonPanel = dynamic(() => import("./historical-comparison-panel").then(m => m.HistoricalComparisonPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const ModellabilityPanel = dynamic(() => import("./modellability-panel").then(m => m.ModellabilityPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const ConcentrationPanel = dynamic(() => import("./concentration-panel").then(m => m.ConcentrationPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const PerformancePanel = dynamic(() => import("./performance-panel").then(m => m.PerformancePanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const WhatIfSimulatorPanel = dynamic(() => import("./whatif-simulator-panel").then(m => m.WhatIfSimulatorPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const OptimizerPanel = dynamic(() => import("./optimizer-panel").then(m => m.OptimizerPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const CorrelationRegimePanel = dynamic(() => import("./correlation-regime-panel").then(m => m.CorrelationRegimePanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const ExceptionDeepDivePanel = dynamic(() => import("./exception-deepdive-panel").then(m => m.ExceptionDeepDivePanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const SensitivityPanel = dynamic(() => import("./sensitivity-panel").then(m => m.SensitivityPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const VolatilityRegimePanel = dynamic(() => import("./volatility-regime-panel").then(m => m.VolatilityRegimePanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const SavedPortfoliosPanel = dynamic(() => import("./saved-portfolios-panel").then(m => m.SavedPortfoliosPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+
+function PanelSkeleton() {
+  return <Skeleton className="h-[400px] rounded-xl" />;
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -56,6 +68,44 @@ function Section({ children, i }: { children: React.ReactNode; i: number }) {
       {children}
     </motion.div>
   );
+}
+
+// Lazy-mount wrapper: only renders children when they scroll into view.
+// Includes a staggered delay based on the section index so panels compile
+// one-at-a-time, preventing OOM-kills from simultaneous Turbopack compilation.
+function LazySection({ children, i, minHeight = 200 }: { children: React.ReactNode; i: number; minHeight?: number }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            // Stagger the mount by index to avoid simultaneous compilation
+            const delay = Math.min(i * 100, 800);
+            setTimeout(() => setVisible(true), delay);
+            observer.disconnect();
+            break;
+          }
+        }
+      },
+      { rootMargin: "50px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [i]);
+
+  if (!visible) {
+    return (
+      <div ref={ref} style={{ minHeight }} className="flex items-center justify-center">
+        <div className="text-xs text-muted-foreground/50 animate-pulse">Loading…</div>
+      </div>
+    );
+  }
+  return <Section i={i}>{children}</Section>;
 }
 
 // A subtle horizontal divider that groups panels into thematic sections.
@@ -110,6 +160,9 @@ export function VarDashboard() {
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-5/15 text-chart-5 border-chart-5/30">What-If</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Optimizer</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">Regimes</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-1/15 text-chart-1 border-chart-1/30">Sensitivities</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">GARCH</Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-5/15 text-chart-5 border-chart-5/30">Save/Load</Badge>
             <Badge variant="secondary" className="text-[10px] h-5 bg-rose-500/15 text-rose-500 border-rose-500/30">Breach feed</Badge>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -158,91 +211,100 @@ export function VarDashboard() {
 
             {/* Methodology comparison + P&L distribution */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={1}><MethodologyComparison report={report} activeMethod={controls.method} /></Section>
-              <Section i={2}><PnlDistribution report={report} method={controls.method} /></Section>
+              <LazySection i={1}><MethodologyComparison report={report} activeMethod={controls.method} /></LazySection>
+              <LazySection i={2}><PnlDistribution report={report} method={controls.method} /></LazySection>
             </div>
 
             {/* VaR Trend + Liquidity (FRTB) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={3}><VarTrendPanel report={report} method={controls.method} /></Section>
-              <Section i={4}><LiquidityPanel report={report} /></Section>
+              <LazySection i={3}><VarTrendPanel report={report} method={controls.method} /></LazySection>
+              <LazySection i={4}><LiquidityPanel report={report} /></LazySection>
             </div>
 
             {/* Backtest + MC paths */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={5}><BacktestPanel report={report} method={controls.method} /></Section>
-              <Section i={6}><McPathsPanel report={report} method={controls.method} /></Section>
+              <LazySection i={5}><BacktestPanel report={report} method={controls.method} /></LazySection>
+              <LazySection i={6}><McPathsPanel report={report} method={controls.method} /></LazySection>
             </div>
 
             {/* Exception deep-dive (round 8) */}
-            <Section i={7}><ExceptionDeepDivePanel controls={controls} /></Section>
+            <LazySection i={7}><ExceptionDeepDivePanel controls={controls} /></LazySection>
 
             {/* Decomposition + Stress */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={8}><DecompositionPanel report={report} /></Section>
-              <Section i={9}><StressPanel report={report} /></Section>
+              <LazySection i={8}><DecompositionPanel report={report} /></LazySection>
+              <LazySection i={9}><StressPanel report={report} /></LazySection>
             </div>
+
+            {/* Risk Factor Sensitivity (round 9) */}
+            <LazySection i={10}><SensitivityPanel controls={controls} /></LazySection>
 
             <SectionDivider label="Stress & Attribution" hint="Reverse stress · PLA · scenario builder" />
 
             {/* Reverse stress + P&L attribution */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={10}><ReverseStressPanel report={report} controls={controls} /></Section>
-              <Section i={11}><PnlAttributionPanel report={report} /></Section>
+              <LazySection i={11}><ReverseStressPanel report={report} controls={controls} /></LazySection>
+              <LazySection i={12}><PnlAttributionPanel report={report} /></LazySection>
             </div>
 
             {/* Limit monitoring + Scenario builder (round 3) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={12}><LimitMonitoringPanel controls={controls} /></Section>
-              <Section i={13}><ScenarioBuilderPanel controls={controls} /></Section>
+              <LazySection i={13}><LimitMonitoringPanel controls={controls} /></LazySection>
+              <LazySection i={14}><ScenarioBuilderPanel controls={controls} /></LazySection>
             </div>
 
             {/* Breach feed + Utilization heatmap (round 4) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={14}><BreachFeedPanel /></Section>
-              <Section i={15}><UtilizationHeatmapPanel /></Section>
+              <LazySection i={15}><BreachFeedPanel /></LazySection>
+              <LazySection i={16}><UtilizationHeatmapPanel /></LazySection>
             </div>
 
-            <SectionDivider label="Advanced Analytics" hint="Greeks · NMRF · concentration · performance · regimes" />
+            <SectionDivider label="Advanced Analytics" hint="Greeks · NMRF · concentration · performance · regimes · GARCH" />
 
             {/* Derivatives/Greeks + Historical VaR comparison (round 5) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={16}><DerivativesPanel /></Section>
-              <Section i={17}><HistoricalComparisonPanel /></Section>
+              <LazySection i={17}><DerivativesPanel /></LazySection>
+              <LazySection i={18}><HistoricalComparisonPanel /></LazySection>
             </div>
 
             {/* Modellability assessment (round 6) */}
-            <Section i={18}><ModellabilityPanel /></Section>
+            <LazySection i={19}><ModellabilityPanel /></LazySection>
 
             {/* Concentration + Performance (round 7) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={19}><ConcentrationPanel controls={controls} /></Section>
-              <Section i={20}><PerformancePanel controls={controls} /></Section>
+              <LazySection i={20}><ConcentrationPanel controls={controls} /></LazySection>
+              <LazySection i={21}><PerformancePanel controls={controls} /></LazySection>
             </div>
 
             {/* Correlation Regime Analysis (round 8) */}
-            <Section i={21}><CorrelationRegimePanel controls={controls} /></Section>
+            <LazySection i={22}><CorrelationRegimePanel controls={controls} /></LazySection>
+
+            {/* Volatility Regime & GARCH Forecast (round 9) */}
+            <LazySection i={23}><VolatilityRegimePanel controls={controls} /></LazySection>
 
             <SectionDivider label="Interactive Simulator" hint="live what-if weight rebalancing · portfolio optimizer" />
 
             {/* What-If Simulator (round 7) — full-width */}
-            <Section i={22}><WhatIfSimulatorPanel controls={controls} report={report} /></Section>
+            <LazySection i={24}><WhatIfSimulatorPanel controls={controls} report={report} /></LazySection>
 
             {/* Portfolio Optimizer (round 8) — full-width */}
-            <Section i={23}><OptimizerPanel controls={controls} /></Section>
+            <LazySection i={25}><OptimizerPanel controls={controls} /></LazySection>
 
-            <SectionDivider label="Market & Holdings" hint="reference data" />
+            <SectionDivider label="Market & Holdings" hint="reference data · saved portfolios" />
+
+            {/* Saved Portfolios (round 9) */}
+            <LazySection i={26}><SavedPortfoliosPanel controls={controls} setControls={setControls} /></LazySection>
 
             {/* Market + Portfolio */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <Section i={24}><MarketPanel market={market} /></Section>
-              <Section i={25}><PortfolioPanel report={report} /></Section>
+              <LazySection i={27}><MarketPanel market={market} /></LazySection>
+              <LazySection i={28}><PortfolioPanel report={report} /></LazySection>
             </div>
 
             {/* Methodology reference */}
-            <Section i={26}>
+            <LazySection i={29}>
               <MethodologyReference />
-            </Section>
+            </LazySection>
           </>
         ) : null}
       </main>
@@ -258,7 +320,7 @@ export function VarDashboard() {
           <div className="flex items-center gap-3 flex-wrap justify-center">
             <span>Parametric · Historical · Monte Carlo · Filtered HS · EVT</span>
             <span>·</span>
-            <span>L-VaR · PLA · Reverse stress · Greeks · NMRF · Concentration · Sharpe · What-If · Optimizer · Regimes · Exception deep-dive · Limit monitoring · Scenario builder · Breach feed · Heatmap · Historical comparison · Kupiec · Christoffersen · Basel III</span>
+            <span>L-VaR · PLA · Reverse stress · Greeks · NMRF · Concentration · Sharpe · What-If · Optimizer · Regimes · GARCH · Sensitivities · Exception deep-dive · Limit monitoring · Scenario builder · Breach feed · Heatmap · Historical comparison · Save/Load · Kupiec · Christoffersen · Basel III</span>
           </div>
         </div>
       </footer>

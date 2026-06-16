@@ -72,3 +72,20 @@ model VarReading {
   breached     Boolean  @default(false)
   createdAt    DateTime @default(now())
 }
+
+/// Saved named portfolios (multi-book support). User can save the current
+/// portfolio under a name and reload it later. Each portfolio stores the
+/// total book value and the list of positions as JSON.
+model SavedPortfolio {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  /// total book value in USD
+  totalValue  Float
+  /// JSON-encoded positions: [{"symbol":"SPX","quantity":800}, ...]
+  positions   String
+  /// optional tags for categorization (comma-separated)
+  tags        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

@@ -864,3 +864,168 @@ Task: QA pass + add Portfolio Optimizer (Risk Parity / Min Variance / Max Sharpe
 5. **Forward-looking return estimates** — replace the backward-looking μ with
    forward-looking estimates (e.g. Black-Litterman, analyst consensus) for more
    realistic Max Sharpe optimization.
+
+---
+Task ID: 18 (round 9 — cron review)
+Agent: main
+Task: QA pass + add Risk Factor Sensitivity (DV01), Volatility Regime & GARCH(1,1) Forecast, Saved Portfolios (Prisma persistence) + dynamic imports + lazy loading to manage dev server memory.
+
+## Current project status (assessment)
+- Rounds 1-8 delivered a stable dashboard with 5 VaR methodologies, ES, backtesting,
+  decomposition, stress testing, VaR trend, L-VaR, reverse stress, P&L attribution,
+  limit monitoring, scenario builder, breach feed, utilization heatmap, derivatives
+  with Greeks, historical VaR comparison, FRTB modellability, concentration risk,
+  performance metrics, what-if simulator, portfolio optimizer, correlation regime
+  analysis, exception deep-dive, CSV export. VLM-verified all sections PASS.
+- Fresh-load QA: 0 console errors, 0 hydration warnings, 0 lint errors.
+  32 charts, 8 tables, 15 sliders, all 22 sections present.
+- No bugs found. Project was stable → proceeded to add new features.
+
+## Completed modifications (this round)
+
+### New backend modules
+- src/lib/var/sensitivity.ts — Risk Factor Sensitivity Analysis:
+  • Per-factor DV01 (P&L per +1bp move), ±1% sensitivities, gamma (convexity via
+    2nd-order numerical differentiation), asymmetry measure.
+  • Parallel shift curve: P&L for -5% to +5% synchronized market moves in 0.5%
+    steps (21 points). Slope = net delta, curvature = net gamma.
+  • Per-factor VaR contribution (parametric decomposition).
+  • Summary: gross/net/long/short exposure, net delta, net gamma, most sensitive
+    factor, top long/short contributors.
+  • Heatmap: top 4 factors by |DV01|, P&L for ±5% in 1% steps.
+- src/lib/var/volatility-regime.ts — Volatility Regime Detector & GARCH(1,1):
+  • EWMA volatility series (λ=0.94, RiskMetrics standard).
+  • GARCH(1,1) parameter estimation via grid search + local refinement (robust
+    alternative to gradient ascent which was numerically unstable). Grid: α in
+    [0.02, 0.30], β in [0.70, 0.98], with 9 omega candidates per (α,β) pair.
+  • Sanity check: if long-run vol > 500% annualized, falls back to α=0.05, β=0.90.
+  • Forward vol forecast: σ²_{t+h} = ω/(1-α-β) + (σ²_t - ω/(1-α-β)) * (α+β)^h.
+  • Per-asset: current vol, long-run vol, persistence (α+β), half-life of vol
+    shocks, vol-of-vol, vol percentile, regime classification (calm/normal/
+    elevated/stress), forward forecasts at 1d/5d/10d/21d/63d/252d.
+  • Portfolio-level: EWMA vol series, current/long-run vol, vol percentile,
+    regime, term structure (6 horizons), summary with stressed assets list.
+- src/lib/var/saved-portfolios.ts — Saved Portfolio CRUD (Prisma):
+  • listSavedPortfolios, getSavedPortfolio, savePortfolio (upsert by name),
+    deletePortfolio, deletePortfolioById, seedExamplePortfolios.
+  • Seeds 3 example portfolios: "Balanced 60/40", "Tech Growth", "Risk Parity".
+  • Uses a lazy PrismaClient singleton (created on first use, not module import)
+    to avoid stale-singleton issues when the schema changes.
+
+### Database
+- prisma/schema.prisma — added SavedPortfolio model (id/name/description/
+  totalValue/positions JSON/tags/createdAt/updatedAt). Ran `bun run db:push`
+  and `bunx prisma generate` to sync schema and regenerate client.
+
+### New API routes
+- src/app/api/var/sensitivity/route.ts — GET endpoint. ~10ms.
+- src/app/api/var/volatility-regime/route.ts — GET endpoint. ~40ms.
+- src/app/api/var/portfolios/route.ts — GET (list) + POST (save/load/delete).
+
+### New frontend panels
+- src/components/var/sensitivity-panel.tsx — Risk Factor Sensitivity panel:
+  4 gradient KPI cards (DV01 most sensitive / Parallel +100bp / Parallel -100bp /
+  Gross+Net Exposure), Net Delta badge. Two-column: parallel shock curve area
+  chart (gradient fill, -5% to +5%) + DV01 per factor bar chart (colored by
+  asset class). Per-factor table (8 columns: factor/weight/mkt value/DV01/+1%
+  P&L/-1% P&L/gamma/VaR contrib) with hover row highlight. Explanatory text.
+- src/components/var/volatility-regime-panel.tsx — Volatility Regime & GARCH:
+  Assessment badge (calm/normal/elevated/stress color-coded). Summary banner
+  with regime description + stressed assets warning. 4 stat cards (Current Vol /
+  Long-Run Vol / Vol Percentile / Regime). Two-column: portfolio EWMA vol area
+  chart with long-run reference line + forward vol forecast bar chart (term
+  structure, colored by vol level). Per-asset vol comparison bar chart (current
+  vs long-run, colored by regime). GARCH parameters table (8 columns: asset/α/
+  β/persistence/half-life/vol-of-vol/percentile/regime). Explanatory text.
+- src/components/var/saved-portfolios-panel.tsx — Saved Portfolios manager:
+  "Save Current" button opens a dialog (name/description/tags inputs + portfolio
+  snapshot preview). List of saved portfolios with name, description, total
+  value, position count, tags, and delete button. Click to load (updates
+  controls.positions + controls.totalValue). Active portfolio highlighted with
+  ring-glow. Toast notifications for save/load/delete. Scrollable list with
+  scrollbar-thin styling. Explanatory text.
+
+### Dashboard architecture improvements
+- src/components/var/var-dashboard.tsx — Major refactor for memory management:
+  • All 29 panels converted to dynamic imports via `next/dynamic` with `ssr:false`
+    and a PanelSkeleton loading fallback. This defers Turbopack compilation to
+    on-demand, preventing the initial page load from compiling all 30+ panel
+    modules simultaneously.
+  • New LazySection wrapper using IntersectionObserver (rootMargin: "50px 0px")
+    with staggered mount delay (i * 100ms, capped at 800ms). Panels only render
+    when scrolled into view, and the stagger prevents multiple panels from
+    compiling at the exact same moment.
+  • KPI cards (i=0) kept as static import + Section (not lazy) since they're
+    always visible.
+  • 3 new header badges (Sensitivities / GARCH / Save-Load). Updated section
+    dividers and footer feature list.
+  • Wired SensitivityPanel (after Decomposition+Stress), VolatilityRegimePanel
+    (after CorrelationRegime), SavedPortfoliosPanel (before Market+Portfolio).
+
+### Bug fixes
+- src/lib/var/volatility-regime.ts — Fixed GARCH estimation: replaced unstable
+  gradient ascent with grid search + local refinement. Added sanity check for
+  implausible long-run vol (>500% annualized → fallback to α=0.05, β=0.90).
+- src/lib/var/volatility-regime.ts — Fixed term structure bug: `currentVar` was
+  passed as stdev (from ewmaVolSeries) instead of variance. Now squares the
+  EWMA vol before passing to garchForecast. Term structure correctly shows vol
+  mean-reverting from 11.2% (1d) → 2.1% (1y) instead of 127% → 2.1%.
+- src/lib/var/saved-portfolios.ts — Fixed Prisma stale singleton: the dev
+  server's global PrismaClient instance didn't have the new SavedPortfolio model
+  after schema migration. Switched to a lazy singleton (created on first use)
+  that always uses the latest generated @prisma/client code. Required regenerating
+  the client with `bunx prisma generate` and restarting the dev server.
+
+## Verification results
+- ESLint: 0 errors, 0 warnings.
+- API tests (all 200):
+  • Sensitivity: 7 factors, most sensitive TLT (DV01 $340), parallel +1% = $100K,
+    net delta $100K, 21-point shock curve, 4-factor heatmap.
+  • Volatility Regime: portfolio vol 12.2% (elevated, 72nd %ile), long-run 2.1%,
+    term structure 11.2%→7.9%→5.2%→2.7%→2.1%→2.1% (vol mean-reverts correctly).
+  • Saved Portfolios: 3 seeded (Balanced 60/40, Tech Growth, Risk Parity), each
+    with 7 positions and $10M total value.
+- Dashboard page loads with 10-16 charts visible (KPI sparklines + first few
+  panels). VLM verified: KPI cards with sparklines, header badges, dark theme
+  all look correct.
+- Dev server memory: the 8GB cgroup limit causes OOM-kills when too many panel
+  chunks compile simultaneously during scrolling. The staggered lazy loading
+  mitigates this but doesn't fully solve it — the dev server may crash if the
+  user scrolls too quickly through 25+ panels. A production build would not have
+  this issue (all chunks pre-compiled).
+
+## Unresolved issues / risks
+- **Dev server OOM (HIGH PRIORITY)**: The dashboard now has 25+ sections with
+  35+ recharts charts. In dev mode, Turbopack compiles each panel's chunk
+  on-demand, causing memory spikes that can OOM-kill the server within the 8GB
+  cgroup limit. Mitigations applied (dynamic imports + lazy loading + staggered
+  mount), but the server may still crash if the user scrolls quickly. A
+  production build (`bun run build`) would pre-compile all chunks and serve
+  them as static files, eliminating this issue entirely.
+- **GARCH estimation robustness**: The grid search approach is more stable than
+  gradient ascent but may not find the true MLE for all return series. The
+  sanity check (fallback to α=0.05, β=0.90 if long-run vol > 500%) handles
+  pathological cases but masks underlying fit issues. A production system would
+  use a proper optimization library (e.g. fmincon).
+- **Saved portfolios lazy PrismaClient**: Creating a new PrismaClient on first
+  use (rather than sharing the global singleton) may exhaust database
+  connections under heavy load. Acceptable for dev; production should use a
+  shared connection pool.
+- **Sensitivity gamma calculation**: The 2nd-order numerical differentiation
+  (using ±2% vs ±1% shocks) produces near-zero gamma for linear positions
+  (correct) but may be noisy for assets with very low volatility. The display
+  shows "—" for |gamma| < $0.01 to avoid clutter.
+
+## Priority recommendations for next phase
+1. **Production build test** — run `bun run build` to verify the dashboard
+   compiles without errors and all chunks are pre-generated. This would also
+   eliminate the dev server OOM issue for end users.
+2. **PDF executive summary export** — generate a formatted PDF report for
+   compliance archiving, including sensitivity, GARCH, and portfolio analysis.
+3. **Apply optimizer weights** — one-click button to propagate the optimizer's
+   recommended weights to the main portfolio (currently the optimizer only
+   previews).
+4. **Forward-looking return estimates** — replace backward-looking μ with
+   Black-Litterman or analyst consensus for more realistic Max Sharpe.
+5. **VaR breach email/webhook alerts** — configurable alert routing when a
+   reading breaches (uses the VarReading audit table).
