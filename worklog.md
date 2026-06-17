@@ -1613,3 +1613,57 @@ Task: Remove all tab features, make a simple usable single-page dashboard.
 - No tabs, no lazy loading, no dynamic imports
 - VLM rating: 8/10 (clean, usable)
 - All panels use the pre-loaded report data — no extra API calls on page load
+
+---
+Task ID: 27 (add tabs back + Electron desktop app)
+Agent: main
+Task: Add tab navigation back and make it a downloadable desktop app for Mac/Windows.
+
+## What was done
+
+### 1. Tabs restored (4 tabs)
+- **Overview**: KPIs, methodology comparison, P&L distribution, portfolio, market data
+- **Analysis**: VaR trend, liquidity, backtest, decomposition, stress, reverse stress, PLA, exception deep-dive, sensitivity, limits, scenarios, breach feed, heatmap (13 panels)
+- **Advanced**: Derivatives/Greeks, historical comparison, modellability, concentration, performance, correlation regime, volatility regime (7 panels)
+- **Tools & Reports**: Custom report builder, what-if simulator, optimizer, saved portfolios (4 panels)
+- All panels use static imports (no dynamic imports) — simpler and more reliable
+- Only the active tab's panels render (conditional rendering with `{activeTab === "..." && ...}`)
+
+### 2. Electron desktop app setup
+- Installed `electron` and `electron-builder`
+- Created `electron/main.js` — Electron main process that:
+  - Starts the Next.js production server on port 3000
+  - Opens a BrowserWindow loading `http://localhost:3000`
+  - Handles app lifecycle (quit, activate, window-all-closed)
+  - Opens external links in the default browser
+- Created `public/icon.png` — app icon (VaR logo)
+- Updated `package.json` with:
+  - `main: "electron/main.js"` — Electron entry point
+  - `electron` — launch Electron (requires server running)
+  - `electron:dev` — start server + launch Electron
+  - `dist` — build + package for current platform
+  - `dist:mac` — build .dmg for macOS
+  - `dist:win` — build .exe for Windows
+  - `build` config with files, extraResources, mac/win targets
+- Created `DESKTOP_APP.md` with build instructions
+
+### 3. Server stability fix
+- `start-server.sh` sets `ulimit -n 65536` before starting (fixes file descriptor limit)
+- Production build mode (`next build --webpack` + `next start`) — pre-compiled, stable
+- Server uses ~1.1GB memory, stable at HTTP 200
+
+## Verification
+- **All 4 tabs work**: Overview (9 charts), Analysis (19 charts), Advanced (18 charts), Tools (9 charts)
+- **Server stable** at 200 through all tab switches
+- **Electron** downloaded and launched successfully
+- **Lint**: 0 errors
+- **Memory**: ~1.1GB stable
+
+## How to build the desktop app
+1. Clone the repo to a Mac or Windows machine
+2. Run `bun install`
+3. Run `bun run dist` (or `bun run dist:mac` / `bun run dist:win`)
+4. Find the installer in `/release/`:
+   - Mac: `VaR Lab-1.0.0.dmg`
+   - Windows: `VaR Lab Setup 1.0.0.exe`
+5. Install and run — the app starts the Next.js server internally and opens in a desktop window

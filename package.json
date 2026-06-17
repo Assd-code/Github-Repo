@@ -10,7 +10,12 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "electron": "electron electron/main.js",
+    "electron:dev": "bash start-server.sh & sleep 8 && electron electron/main.js",
+    "dist": "next build --webpack && electron-builder",
+    "dist:mac": "next build --webpack && electron-builder --mac",
+    "dist:win": "next build --webpack && electron-builder --win"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -85,10 +90,66 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "bun-types": "^1.3.4",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"
+  },
+  "main": "electron/main.js",
+  "build": {
+    "appId": "com.varlab.app",
+    "productName": "VaR Lab",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      ".next/**/*",
+      "public/**/*",
+      "package.json",
+      "next.config.ts",
+      "tsconfig.json",
+      "node_modules/**/*",
+      "prisma/**/*",
+      "db/**/*",
+      "skills/pdf/scripts/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "public/icon.png"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "public/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "extraResources": [
+      {
+        "from": "skills",
+        "to": "skills"
+      },
+      {
+        "from": "db",
+        "to": "db"
+      },
+      {
+        "from": "prisma",
+        "to": "prisma"
+      }
+    ]
   }
 }
