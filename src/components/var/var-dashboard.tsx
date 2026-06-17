@@ -1,8 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
-import dynamic from "next/dynamic";
 import { useVarData } from "./use-var-data";
 import { ControlBar } from "./control-bar";
 import { KpiCards } from "./kpi-cards";
@@ -10,69 +8,27 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertCircle, BookOpen, LayoutDashboard, BarChart3, Microscope, SlidersHorizontal } from "lucide-react";
-import { TabErrorBoundary } from "./tab-error-boundary";
+import { Activity, AlertCircle, BookOpen } from "lucide-react";
 
-// ONE dynamic import per tab — 4 tabs, each is a small chunk.
-const OverviewTab = dynamic(() => import("./tabs/overview-tab").then(m => m.OverviewTab), {
-  ssr: false,
-  loading: () => <TabSkeleton />,
-});
-const AnalysisTab = dynamic(() => import("./tabs/analysis-tab").then(m => m.AnalysisTab), {
-  ssr: false,
-  loading: () => <TabSkeleton />,
-});
-const AdvancedTab = dynamic(() => import("./tabs/advanced-tab").then(m => m.AdvancedTab), {
-  ssr: false,
-  loading: () => <TabSkeleton />,
-});
-const ToolsTab = dynamic(() => import("./tabs/tools-tab").then(m => m.ToolsTab), {
-  ssr: false,
-  loading: () => <TabSkeleton />,
-});
-
-function TabSkeleton() {
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-        <Skeleton className="h-[400px] rounded-xl" />
-        <Skeleton className="h-[400px] rounded-xl" />
-      </div>
-    </div>
-  );
-}
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
-  show: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.4, delay: Math.min(i * 0.05, 0.3), ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-  }),
-};
-
-function Section({ children, i }: { children: React.ReactNode; i: number }) {
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
-  if (!mounted) return <div>{children}</div>;
-  return <motion.div custom={i} variants={fadeUp} initial="hidden" animate="show">{children}</motion.div>;
-}
-
-type TabId = "overview" | "analysis" | "advanced" | "tools";
-
-const TABS: { id: TabId; label: string; icon: React.ElementType; hint: string }[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard, hint: "KPIs · methodology · P&L · portfolio · market data" },
-  { id: "analysis", label: "Analysis", icon: BarChart3, hint: "Backtest · stress · decomposition · sensitivity · limits · breaches" },
-  { id: "advanced", label: "Advanced", icon: Microscope, hint: "Greeks · GARCH · concentration · performance · regimes" },
-  { id: "tools", label: "Tools & Reports", icon: SlidersHorizontal, hint: "What-if · optimizer · portfolio manager · custom PDF report" },
-];
+// Direct static imports — no dynamic imports, no tabs, no lazy loading.
+// This is a simple single-page dashboard that just works.
+import { MethodologyComparison } from "./methodology-comparison";
+import { PnlDistribution } from "./pnl-distribution";
+import { PortfolioPanel } from "./portfolio-panel";
+import { MarketPanel } from "./market-panel";
+import { VarTrendPanel } from "./var-trend-panel";
+import { LiquidityPanel } from "./liquidity-panel";
+import { BacktestPanel } from "./backtest-panel";
+import { DecompositionPanel } from "./decomposition-panel";
+import { StressPanel } from "./stress-panel";
+import { ReverseStressPanel } from "./reverse-stress-panel";
+import { PnlAttributionPanel } from "./pnl-attribution-panel";
+import { CustomReportPanel } from "./custom-report-panel";
 
 export function VarDashboard() {
   const { report, market, loading, error, controls, setControls, lastUpdated, useRealData, setUseRealData, dataSource, activePortfolioName, setActivePortfolioName, isDirty, markClean } = useVarData();
   const [, force] = React.useReducer((x) => x + 1, 0);
   const refresh = () => force();
-  const [activeTab, setActiveTab] = React.useState<TabId>("overview");
-
-  const tabProps = { report, market, controls, setControls, useRealData, activePortfolioName, setActivePortfolioName, isDirty, markClean };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -120,38 +76,23 @@ export function VarDashboard() {
             <ThemeToggle />
           </div>
         </div>
-
-        {/* Tab navigation bar — only 3 tabs */}
-        <div className="border-t bg-background/95 backdrop-blur-md">
-          <div className="mx-auto max-w-[1400px] px-4 md:px-6">
-            <div className="flex items-center gap-0.5 -mb-px">
-              {TABS.map((tab) => {
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-1.5 px-4 md:px-6 py-2.5 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
-                      isActive
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-                    }`}
-                    title={tab.hint}
-                  >
-                    <tab.icon className="h-3.5 w-3.5" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
       </header>
 
       <main className="flex-1 mx-auto max-w-[1400px] w-full px-4 md:px-6 py-4 space-y-3">
-        {/* Control bar — always visible */}
+        {/* Control bar */}
         <div className="rounded-xl border bg-card p-3 md:p-4 shadow-sm">
-          <ControlBar controls={controls} setControls={setControls} onRefresh={refresh} loading={loading} useRealData={useRealData} setUseRealData={setUseRealData} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} />
+          <ControlBar
+            controls={controls}
+            setControls={setControls}
+            onRefresh={refresh}
+            loading={loading}
+            useRealData={useRealData}
+            setUseRealData={setUseRealData}
+            activePortfolioName={activePortfolioName}
+            setActivePortfolioName={setActivePortfolioName}
+            isDirty={isDirty}
+            markClean={markClean}
+          />
         </div>
 
         {/* Data source banner */}
@@ -162,15 +103,6 @@ export function VarDashboard() {
               {dataSource.dataSource === "mixed" && <span className="text-amber-500 font-medium">🟡 Mixed Data</span>}
               {dataSource.dataSource === "synthetic-fallback" && <span className="text-rose-500 font-medium">🔴 Synthetic Fallback</span>}
               <span className="text-muted-foreground">· {dataSource.fetched?.length || 0} symbols from Yahoo Finance</span>
-              {dataSource.fetched && dataSource.fetched.length > 0 && (
-                <div className="flex items-center gap-1 flex-wrap">
-                  {dataSource.fetched.map((f) => (
-                    <span key={f.symbol} className="rounded bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono" title={`${f.name} · $${f.spot.toFixed(2)}`}>
-                      {f.symbol}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -184,22 +116,53 @@ export function VarDashboard() {
         )}
 
         {loading && !report ? (
-          <LoadingState />
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-[88px] rounded-lg" />
+              ))}
+            </div>
+            <Skeleton className="h-[420px] rounded-xl" />
+          </div>
         ) : report ? (
-          <>
-            {/* KPI cards — always visible */}
-            <Section i={0}>
-              <KpiCards report={report} method={controls.method} />
-            </Section>
+          <div className="space-y-3">
+            {/* KPI cards */}
+            <KpiCards report={report} method={controls.method} />
 
-            {/* Tab content — only 3 tabs, each is a single chunk */}
-            <TabErrorBoundary tabId={activeTab}>
-              {activeTab === "overview" && <OverviewTab {...tabProps} />}
-              {activeTab === "analysis" && <AnalysisTab {...tabProps} />}
-              {activeTab === "advanced" && <AdvancedTab {...tabProps} />}
-              {activeTab === "tools" && <ToolsTab {...tabProps} />}
-            </TabErrorBoundary>
-          </>
+            {/* Core charts — use report data, no extra API calls */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              <MethodologyComparison report={report} activeMethod={controls.method} />
+              <PnlDistribution report={report} method={controls.method} />
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              <VarTrendPanel report={report} method={controls.method} />
+              <LiquidityPanel report={report} />
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              <BacktestPanel report={report} method={controls.method} />
+              <DecompositionPanel report={report} />
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              <StressPanel report={report} />
+              <ReverseStressPanel report={report} controls={controls} />
+            </div>
+
+            <PnlAttributionPanel report={report} />
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              <PortfolioPanel report={report} />
+              <MarketPanel market={market} />
+            </div>
+
+            {/* Custom Report Builder */}
+            <CustomReportPanel controls={controls} useRealData={useRealData} activePortfolioName={activePortfolioName} />
+
+            {/* Methodology reference */}
+            <MethodologyReference />
+          </div>
         ) : null}
       </main>
 
@@ -218,15 +181,31 @@ export function VarDashboard() {
   );
 }
 
-function LoadingState() {
+function MethodologyReference() {
+  const refs = [
+    { name: "Parametric (Var-Cov)", desc: "Assumes jointly normal returns. Fast, captures diversification via the covariance matrix, but underestimates fat tails." },
+    { name: "Historical Simulation", desc: "Non-parametric: re-values the portfolio under every historical move. Captures empirical fat tails but anchored to the window." },
+    { name: "Monte Carlo", desc: "Simulates thousands of correlated paths. Most flexible — handles non-linearity, but compute-heavy." },
+    { name: "Filtered HS (EWMA)", desc: "EWMA-GARCH filter standardizes returns, bootstraps residuals scaled to current vol. Adapts fast to vol regimes." },
+    { name: "EVT (GPD)", desc: "Fits a Generalized Pareto Distribution to the tail. Improves accuracy at very high confidence (99.5%+)." },
+  ];
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[88px] rounded-lg" />
+    <div className="rounded-xl border bg-card p-4">
+      <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
+        <BookOpen className="h-4 w-4 text-muted-foreground" />
+        Methodology Reference
+      </h3>
+      <p className="text-[11px] text-muted-foreground mb-3">
+        A robust risk framework reports a range of VaRs across methods — the spread itself is a measure of model risk.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {refs.map((r) => (
+          <div key={r.name} className="rounded-lg border bg-muted/20 p-3">
+            <div className="text-xs font-semibold mb-1">{r.name}</div>
+            <div className="text-[11px] text-muted-foreground leading-relaxed">{r.desc}</div>
+          </div>
         ))}
       </div>
-      <TabSkeleton />
     </div>
   );
 }

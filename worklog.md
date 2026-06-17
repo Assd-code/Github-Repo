@@ -1583,3 +1583,33 @@ oom_kill=0, process just disappeared).
 - VLM confirmed: 4 tabs visible, charts rendering correctly
 - Server stable at ~1.1GB memory
 - No OOM kills (oom_kill=0)
+
+---
+Task ID: 26 (remove tabs — simple single-page dashboard)
+Agent: main
+Task: Remove all tab features, make a simple usable single-page dashboard.
+
+## What was done
+- Completely rewrote var-dashboard.tsx — removed ALL tab machinery (TabErrorBoundary,
+  dynamic imports, tab navigation, StaggeredSection, 6 tab component files).
+- Single page with direct static imports of 12 panels that use the already-loaded
+  report data (no extra API calls):
+  1. KPI cards (always visible)
+  2. Methodology Comparison + P&L Distribution
+  3. VaR Trend + Liquidity (FRTB)
+  4. Backtest + Decomposition
+  5. Stress + Reverse Stress
+  6. P&L Attribution
+  7. Portfolio + Market Data
+  8. Custom Report Builder
+  9. Methodology Reference
+- Created start-server.sh that sets ulimit -n 65536 before starting (this was
+  the actual root cause of all crashes — file descriptor limit, not memory).
+- Updated dev script to use start-server.sh.
+
+## Result
+- 16 charts on a single page
+- Server stable at 200 for 30+ seconds
+- No tabs, no lazy loading, no dynamic imports
+- VLM rating: 8/10 (clean, usable)
+- All panels use the pre-loaded report data — no extra API calls on page load

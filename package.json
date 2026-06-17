@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "ulimit -n 65536; next build --webpack && next start -p 3000 2>&1 | tee dev.log",
+    "dev": "bash start-server.sh 2>&1 | tee dev.log",
     "build": "next build --webpack",
     "start": "ulimit -n 65536; next start -p 3000",
     "lint": "eslint .",
