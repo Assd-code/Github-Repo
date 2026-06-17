@@ -106,6 +106,7 @@ export async function deletePortfolioById(id: string): Promise<void> {
 }
 
 // Seed a few example portfolios if the table is empty.
+// Uses Yahoo Finance-compatible symbols so they work with real data mode.
 export async function seedExamplePortfolios(): Promise<void> {
   const db = getDb();
   const count = await db.savedPortfolio.count();
@@ -116,13 +117,13 @@ export async function seedExamplePortfolios(): Promise<void> {
       description: "60% equity / 40% bonds — classic balanced book",
       totalValue: 10_000_000,
       positions: [
-        { symbol: "SPX", quantity: 1200 },
+        { symbol: "SPY", quantity: 1200 },
         { symbol: "AAPL", quantity: 18000 },
         { symbol: "XOM", quantity: 12000 },
         { symbol: "TLT", quantity: 60000 },
-        { symbol: "EURUSD", quantity: 2_000_000 },
-        { symbol: "GOLD", quantity: 600 },
-        { symbol: "BTC", quantity: 15 },
+        { symbol: "EURUSD=X", quantity: 2_000_000 },
+        { symbol: "GLD", quantity: 600 },
+        { symbol: "BTC-USD", quantity: 15 },
       ],
       tags: "balanced,low-risk",
     },
@@ -131,13 +132,13 @@ export async function seedExamplePortfolios(): Promise<void> {
       description: "Concentrated tech & crypto growth portfolio",
       totalValue: 10_000_000,
       positions: [
-        { symbol: "SPX", quantity: 1000 },
+        { symbol: "SPY", quantity: 1000 },
         { symbol: "AAPL", quantity: 25000 },
-        { symbol: "BTC", quantity: 80 },
+        { symbol: "NVDA", quantity: 5000 },
+        { symbol: "MSFT", quantity: 8000 },
+        { symbol: "BTC-USD", quantity: 80 },
         { symbol: "TLT", quantity: 10000 },
-        { symbol: "EURUSD", quantity: 1_000_000 },
-        { symbol: "GOLD", quantity: 200 },
-        { symbol: "XOM", quantity: 5000 },
+        { symbol: "GLD", quantity: 200 },
       ],
       tags: "growth,high-risk",
     },
@@ -146,15 +147,39 @@ export async function seedExamplePortfolios(): Promise<void> {
       description: "Risk-balanced book approximating equal risk contribution",
       totalValue: 10_000_000,
       positions: [
-        { symbol: "SPX", quantity: 600 },
+        { symbol: "SPY", quantity: 600 },
         { symbol: "AAPL", quantity: 6000 },
-        { symbol: "XOM", quantity: 8000 },
         { symbol: "TLT", quantity: 70000 },
-        { symbol: "EURUSD", quantity: 5_000_000 },
-        { symbol: "GOLD", quantity: 1200 },
-        { symbol: "BTC", quantity: 25 },
+        { symbol: "EURUSD=X", quantity: 5_000_000 },
+        { symbol: "GLD", quantity: 1200 },
+        { symbol: "BTC-USD", quantity: 25 },
       ],
       tags: "risk-parity,diversified",
+    },
+    {
+      name: "Bear Hedged",
+      description: "Long equity + SPXS bear 3x hedge for tail protection",
+      totalValue: 10_000_000,
+      positions: [
+        { symbol: "SPY", quantity: 1500 },
+        { symbol: "AAPL", quantity: 10000 },
+        { symbol: "SPXS", quantity: 30000 },
+        { symbol: "TLT", quantity: 30000 },
+        { symbol: "GLD", quantity: 500 },
+      ],
+      tags: "hedged,bear,tail-risk",
+    },
+    {
+      name: "Crypto Whale",
+      description: "Crypto-heavy speculative book",
+      totalValue: 10_000_000,
+      positions: [
+        { symbol: "BTC-USD", quantity: 120 },
+        { symbol: "ETH-USD", quantity: 2000 },
+        { symbol: "SPY", quantity: 400 },
+        { symbol: "GLD", quantity: 300 },
+      ],
+      tags: "crypto,high-risk,speculative",
     },
   ];
   for (const ex of examples) {

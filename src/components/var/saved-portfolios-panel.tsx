@@ -33,9 +33,17 @@ interface SavedPortfolio {
 export function SavedPortfoliosPanel({
   controls,
   setControls,
+  activePortfolioName,
+  setActivePortfolioName,
+  isDirty,
+  markClean,
 }: {
   controls: VarControls;
   setControls: React.Dispatch<React.SetStateAction<VarControls>>;
+  activePortfolioName: string | null;
+  setActivePortfolioName: React.Dispatch<React.SetStateAction<string | null>>;
+  isDirty: boolean;
+  markClean: () => void;
 }) {
   const [portfolios, setPortfolios] = React.useState<SavedPortfolio[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -43,7 +51,6 @@ export function SavedPortfoliosPanel({
   const [saveName, setSaveName] = React.useState("");
   const [saveDesc, setSaveDesc] = React.useState("");
   const [saveTags, setSaveTags] = React.useState("");
-  const [loadedName, setLoadedName] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
 
@@ -85,6 +92,8 @@ export function SavedPortfoliosPanel({
       });
       const j = await res.json();
       if (j.ok) {
+        setActivePortfolioName(saveName.trim());
+        markClean();
         showToast(`✓ Saved "${saveName.trim()}"`);
         setSaveOpen(false);
         setSaveName("");
@@ -116,7 +125,8 @@ export function SavedPortfoliosPanel({
           positions: p.positions,
           totalValue: p.totalValue,
         }));
-        setLoadedName(name);
+        setActivePortfolioName(name);
+        markClean();
         showToast(`✓ Loaded "${name}"`);
       } else {
         showToast(`✗ ${j.error || "Load failed"}`);
@@ -135,7 +145,7 @@ export function SavedPortfoliosPanel({
         body: JSON.stringify({ action: "delete", id }),
       });
       showToast(`✓ Deleted "${name}"`);
-      if (loadedName === name) setLoadedName(null);
+      if (activePortfolioName === name) setActivePortfolioName(null);
       refresh();
     } catch (e) {
       showToast("✗ Delete failed");
@@ -226,7 +236,7 @@ export function SavedPortfoliosPanel({
         ) : (
           <div className="space-y-1.5 max-h-[280px] overflow-y-auto scrollbar-thin pr-1">
             {portfolios.map((p) => {
-              const isActive = loadedName === p.name;
+              const isActive = activePortfolioName === p.name;
               const tags = p.tags ? p.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
               return (
                 <div

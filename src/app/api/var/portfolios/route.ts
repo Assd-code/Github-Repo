@@ -66,6 +66,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    if (action === "duplicate") {
+      const sourceName = String(body.sourceName || "").trim();
+      const newName = String(body.newName || "").trim();
+      if (!sourceName) throw new Error("sourceName is required");
+      if (!newName) throw new Error("newName is required");
+      const source = await getSavedPortfolio(sourceName);
+      if (!source) throw new Error(`portfolio '${sourceName}' not found`);
+      const portfolio: PortfolioConfig = { positions: source.positions, totalValue: source.totalValue };
+      const saved = await savePortfolio(
+        newName,
+        portfolio,
+        source.description ? `${source.description} (copy)` : "Duplicated portfolio",
+        source.tags ?? undefined
+      );
+      return NextResponse.json({ ok: true, portfolio: saved });
+    }
+
+    if (action === "new") {
+      // Create a blank portfolio with a single default position
+      const name = String(body.name || "").trim();
+      if (!name) throw new Error("name is required");
+      const portfolio: PortfolioConfig = {
+        positions: [{ symbol: "SPY", quantity: 1000 }],
+        totalValue: 10_000_000,
+      };
+      const saved = await savePortfolio(name, portfolio, "New blank portfolio");
+      return NextResponse.json({ ok: true, portfolio: saved });
+    }
+
     throw new Error(`unknown action: ${action}`);
   } catch (err) {
     return NextResponse.json(

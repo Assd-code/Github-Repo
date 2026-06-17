@@ -1154,3 +1154,105 @@ Task: Add real market data integration (Yahoo Finance API) and support for custo
 - Crypto/FX symbols require Yahoo-specific suffixes (BTC-USD, EURUSD=X). The
   UI quick-pick list handles this, but manually-typed crypto/FX symbols need
   the correct suffix.
+
+---
+Task ID: 20 (multi-portfolio support)
+Agent: main
+Task: Add full multi-portfolio management — switcher dropdown, save/update, save-as, duplicate, new blank portfolio, dirty-state tracking.
+
+## Current project status (assessment)
+- The SavedPortfolios backend CRUD already existed (round 9) but was buried at the bottom of the page.
+- The control bar had no quick switcher — users had to scroll down to the Saved Portfolios panel.
+- No "Save As", "Duplicate", or "New Blank" actions existed.
+- Seeds used old synthetic symbols (SPX, BTC, GOLD) that don't work with real data mode.
+- User requested: "i would want it to be able to set multiple portfolio"
+
+## Completed modifications
+
+### Backend
+- src/lib/var/saved-portfolios.ts — Updated seedExamplePortfolios():
+  • Changed all symbols to Yahoo-compatible (SPY, AAPL, XOM, TLT, EURUSD=X, GLD, BTC-USD, NVDA, MSFT, SPXS, ETH-USD).
+  • Added 2 new seed portfolios: "Bear Hedged" (SPY+AAPL+SPXS+TLT+GLD) and "Crypto Whale" (BTC-USD+ETH-USD+SPY+GLD).
+  • Total 5 seeded portfolios.
+- src/app/api/var/portfolios/route.ts — Added 2 new POST actions:
+  • "duplicate" — copies an existing portfolio under a new name.
+  • "new" — creates a blank portfolio with a single SPY position.
+
+### Frontend — Control Bar
+- src/components/var/control-bar.tsx — Major update:
+  • New Portfolio switcher dropdown in the control bar (always visible at the top):
+    - Shows active portfolio name (or "Untitled (unsaved)" if none loaded).
+    - Green check + name when a saved portfolio is active.
+    - Position count badge.
+    - "● unsaved" indicator when changes have been made since last save/load.
+  • Dropdown opens to show all saved portfolios with name, position count, and total value.
+    - Click any to load it (recomputes all panels).
+    - Active portfolio highlighted with border.
+    - "New" button at top of dropdown to create a blank portfolio.
+  • 3 icon buttons next to the switcher:
+    - Save (disk icon) — updates the current portfolio in-place (or opens Save As if none active).
+    - Save As (copy icon) — opens a dialog to save current state under a new name + description.
+    - Duplicate (copy-plus icon) — creates a copy of the current portfolio with " (copy)" suffix.
+  • Save As dialog with name, description, and snapshot preview.
+  • New Portfolio dialog with name input (creates blank SPY-only portfolio).
+  • Toast notifications for all actions (save, load, duplicate, new, errors).
+  • Removed the old "Portfolio" button (replaced by switcher + "Edit" button).
+  • "Edit" button opens the existing portfolio editor dialog (ticker search + positions).
+
+### Frontend — Hook
+- src/components/var/use-var-data.ts — Added multi-portfolio state:
+  • activePortfolioName: string | null — tracks which saved portfolio is loaded.
+  • isDirty: boolean — true when controls have changed since last load/save.
+  • markClean() — resets dirty state after save/load.
+  • Dirty tracking via ref signature comparison (positionsStr + totalValue).
+
+### Frontend — Saved Portfolios Panel
+- src/components/var/saved-portfolios-panel.tsx — Updated to sync with the control bar:
+  • Now accepts activePortfolioName, setActivePortfolioName, isDirty, markClean props.
+  • Loading a portfolio sets activePortfolioName + markClean.
+  • Saving sets activePortfolioName + markClean.
+  • Deleting clears activePortfolioName if the deleted portfolio was active.
+  • Active portfolio highlighted with the same styling as the control bar switcher.
+
+## Verification results
+- ESLint: 0 errors, 0 warnings.
+- API tests:
+  • GET /api/var/portfolios returns 5 seeded portfolios with Yahoo symbols.
+  • POST "duplicate" — duplicated "Bear Hedged" as "Bear Hedged v2" (5 positions) ✓
+  • POST "new" — created "My Test Portfolio" (1 SPY position) ✓
+  • POST "delete" — cleaned up test portfolios ✓
+- UI tests (agent-browser + VLM):
+  • Portfolio switcher dropdown visible in control bar showing "Untitled (unsaved)" initially ✓
+  • Save / SaveAs / Duplicate icon buttons visible ✓
+  • Edit button opens portfolio editor ✓
+  • Switcher dropdown lists all 5 saved portfolios with position count + total value ✓
+  • "New" button at top of dropdown ✓
+  • Clicking "Bear Hedged" loads it — switcher shows "Bear Hedged" as active, SPXS appears in data ✓
+  • KPI cards recompute with new VaR values ($175.1K) ✓
+  • Green LIVE DATA badge + data source banner showing "5 symbols fetched from Yahoo Finance" (SPY, AAPL, SPXS, TLT, GLD) ✓
+
+## Key features delivered
+1. **Portfolio switcher dropdown** — always visible in the control bar at the top of the page. Click to see all saved portfolios, click any to instantly load it.
+2. **Save / Update** — disk icon saves changes to the current portfolio in-place. If no portfolio is loaded, opens Save As dialog.
+3. **Save As** — copy icon opens a dialog to save the current state under a new name + description.
+4. **Duplicate** — copy-plus icon creates a copy of the current portfolio with " (copy)" suffix.
+5. **New Blank** — "New" button in the dropdown creates a blank portfolio (single SPY position) that you can then edit.
+6. **Dirty state tracking** — "● unsaved" indicator appears next to the Portfolio label when changes have been made since the last save/load.
+7. **5 seeded example portfolios** with Yahoo-compatible symbols:
+   - Balanced 60/40 (SPY, AAPL, XOM, TLT, EURUSD=X, GLD, BTC-USD)
+   - Tech Growth (SPY, AAPL, NVDA, MSFT, BTC-USD, TLT, GLD)
+   - Risk Parity (SPY, AAPL, TLT, EURUSD=X, GLD, BTC-USD)
+   - Bear Hedged (SPY, AAPL, SPXS, TLT, GLD) — includes the SPXS ticker the user asked about
+   - Crypto Whale (BTC-USD, ETH-USD, SPY, GLD)
+8. **Synced Saved Portfolios panel** — the bottom-of-page panel now stays in sync with the control bar switcher (same active name, same load/save behavior).
+
+## How to use
+1. Open the dashboard — the control bar has a portfolio switcher at the top.
+2. Click the switcher to see all saved portfolios.
+3. Click any portfolio to load it — all panels recompute instantly with real data.
+4. Edit positions via the "Edit" button (ticker search + quick-pick).
+5. Click the Save (disk) icon to save changes to the current portfolio.
+6. Click the Save As (copy) icon to save under a new name.
+7. Click the Duplicate (copy-plus) icon to create a copy.
+8. Click "New" in the dropdown to create a blank portfolio.
+9. The "● unsaved" indicator tells you when changes need saving.

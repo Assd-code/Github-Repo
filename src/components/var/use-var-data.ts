@@ -36,6 +36,11 @@ export interface VarData {
   useRealData: boolean;
   setUseRealData: React.Dispatch<React.SetStateAction<boolean>>;
   dataSource: { dataSource?: string; fetched?: { symbol: string; name: string; assetClass: string; spot: number; prices: number }[]; failed?: { symbol: string; error: string }[] } | null;
+  // Multi-portfolio support
+  activePortfolioName: string | null;
+  setActivePortfolioName: React.Dispatch<React.SetStateAction<string | null>>;
+  isDirty: boolean;
+  markClean: () => void;
 }
 
 const DEFAULT_CONTROLS: VarControls = {
@@ -64,11 +69,28 @@ export function useVarData(): VarData {
   const [lastUpdated, setLastUpdated] = React.useState<string | null>(null);
   const [useRealData, setUseRealData] = React.useState<boolean>(true);
   const [dataSource, setDataSource] = React.useState<VarData["dataSource"]>(null);
+  const [activePortfolioName, setActivePortfolioName] = React.useState<string | null>(null);
+  const [isDirty, setIsDirty] = React.useState<boolean>(false);
 
   const positionsStr = React.useMemo(
     () => controls.positions.map((p) => `${p.symbol}:${p.quantity}`).join(","),
     [controls.positions]
   );
+
+  // Track when controls change after a portfolio is loaded (dirty state)
+  const lastLoaded = React.useRef<string>("");
+  React.useEffect(() => {
+    const sig = `${positionsStr}|${controls.totalValue}`;
+    if (lastLoaded.current && lastLoaded.current !== sig) {
+      setIsDirty(true);
+    }
+  }, [positionsStr, controls.totalValue]);
+
+  const markClean = React.useCallback(() => {
+    const sig = `${positionsStr}|${controls.totalValue}`;
+    lastLoaded.current = sig;
+    setIsDirty(false);
+  }, [positionsStr, controls.totalValue]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -118,5 +140,5 @@ export function useVarData(): VarData {
     };
   }, [controls.confidence, controls.horizon, controls.method, controls.seed, controls.totalValue, positionsStr, useRealData]);
 
-  return { report, market, loading, error, controls, setControls, lastUpdated, useRealData, setUseRealData, dataSource };
+  return { report, market, loading, error, controls, setControls, lastUpdated, useRealData, setUseRealData, dataSource, activePortfolioName, setActivePortfolioName, isDirty, markClean };
 }

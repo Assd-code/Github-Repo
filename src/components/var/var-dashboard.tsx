@@ -129,7 +129,7 @@ function SectionDivider({ label, hint }: { label: string; hint?: string }) {
 }
 
 export function VarDashboard() {
-  const { report, market, loading, error, controls, setControls, lastUpdated, useRealData, setUseRealData, dataSource } = useVarData();
+  const { report, market, loading, error, controls, setControls, lastUpdated, useRealData, setUseRealData, dataSource, activePortfolioName, setActivePortfolioName, isDirty, markClean } = useVarData();
   const [, force] = React.useReducer((x) => x + 1, 0);
   const refresh = () => force();
 
@@ -197,7 +197,7 @@ export function VarDashboard() {
         <div
           className="rounded-xl border bg-card p-3 md:p-4 shadow-sm"
         >
-          <ControlBar controls={controls} setControls={setControls} onRefresh={refresh} loading={loading} useRealData={useRealData} setUseRealData={setUseRealData} />
+          <ControlBar controls={controls} setControls={setControls} onRefresh={refresh} loading={loading} useRealData={useRealData} setUseRealData={setUseRealData} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} />
         </div>
 
         {/* Data source banner */}
@@ -331,7 +331,7 @@ export function VarDashboard() {
             <SectionDivider label="Market & Holdings" hint="reference data · saved portfolios" />
 
             {/* Saved Portfolios (round 9) */}
-            <LazySection i={26}><SavedPortfoliosPanel controls={controls} setControls={setControls} /></LazySection>
+            <LazySection i={26}><SavedPortfoliosPanel controls={controls} setControls={setControls} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} /></LazySection>
 
             {/* Market + Portfolio */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
