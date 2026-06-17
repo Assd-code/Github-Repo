@@ -11,46 +11,35 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Activity, AlertCircle, BookOpen, LayoutDashboard, BarChart3, ShieldAlert, Microscope, SlidersHorizontal, FileText } from "lucide-react";
-
-// Dynamic imports: panels are compiled on-demand by Turbopack.
-const MethodologyComparison = dynamic(() => import("./methodology-comparison").then(m => m.MethodologyComparison), { ssr: false, loading: () => <PanelSkeleton /> });
-const PnlDistribution = dynamic(() => import("./pnl-distribution").then(m => m.PnlDistribution), { ssr: false, loading: () => <PanelSkeleton /> });
-const BacktestPanel = dynamic(() => import("./backtest-panel").then(m => m.BacktestPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const McPathsPanel = dynamic(() => import("./mc-paths-panel").then(m => m.McPathsPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const DecompositionPanel = dynamic(() => import("./decomposition-panel").then(m => m.DecompositionPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const StressPanel = dynamic(() => import("./stress-panel").then(m => m.StressPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const MarketPanel = dynamic(() => import("./market-panel").then(m => m.MarketPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const PortfolioPanel = dynamic(() => import("./portfolio-panel").then(m => m.PortfolioPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const VarTrendPanel = dynamic(() => import("./var-trend-panel").then(m => m.VarTrendPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const LiquidityPanel = dynamic(() => import("./liquidity-panel").then(m => m.LiquidityPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const ReverseStressPanel = dynamic(() => import("./reverse-stress-panel").then(m => m.ReverseStressPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const PnlAttributionPanel = dynamic(() => import("./pnl-attribution-panel").then(m => m.PnlAttributionPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const LimitMonitoringPanel = dynamic(() => import("./limit-monitoring-panel").then(m => m.LimitMonitoringPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const ScenarioBuilderPanel = dynamic(() => import("./scenario-builder-panel").then(m => m.ScenarioBuilderPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const BreachFeedPanel = dynamic(() => import("./breach-feed-panel").then(m => m.BreachFeedPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const UtilizationHeatmapPanel = dynamic(() => import("./utilization-heatmap-panel").then(m => m.UtilizationHeatmapPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const DerivativesPanel = dynamic(() => import("./derivatives-panel").then(m => m.DerivativesPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const HistoricalComparisonPanel = dynamic(() => import("./historical-comparison-panel").then(m => m.HistoricalComparisonPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const ModellabilityPanel = dynamic(() => import("./modellability-panel").then(m => m.ModellabilityPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const ConcentrationPanel = dynamic(() => import("./concentration-panel").then(m => m.ConcentrationPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const PerformancePanel = dynamic(() => import("./performance-panel").then(m => m.PerformancePanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const WhatIfSimulatorPanel = dynamic(() => import("./whatif-simulator-panel").then(m => m.WhatIfSimulatorPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const OptimizerPanel = dynamic(() => import("./optimizer-panel").then(m => m.OptimizerPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const CorrelationRegimePanel = dynamic(() => import("./correlation-regime-panel").then(m => m.CorrelationRegimePanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const ExceptionDeepDivePanel = dynamic(() => import("./exception-deepdive-panel").then(m => m.ExceptionDeepDivePanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const SensitivityPanel = dynamic(() => import("./sensitivity-panel").then(m => m.SensitivityPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const VolatilityRegimePanel = dynamic(() => import("./volatility-regime-panel").then(m => m.VolatilityRegimePanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const SavedPortfoliosPanel = dynamic(() => import("./saved-portfolios-panel").then(m => m.SavedPortfoliosPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-const CustomReportPanel = dynamic(() => import("./custom-report-panel").then(m => m.CustomReportPanel), { ssr: false, loading: () => <PanelSkeleton /> });
-
-function PanelSkeleton() {
-  return <Skeleton className="h-[400px] rounded-xl" />;
-}
-
-// Error boundary for tab content — catches ChunkLoadError (common in dev mode
-// when switching tabs triggers simultaneous compilation) and shows a retry
-// button instead of crashing the whole page.
 import { TabErrorBoundary } from "./tab-error-boundary";
+
+// ONE dynamic import per tab — each tab's panels are bundled into a single chunk.
+// This reduces the number of dynamic import wrappers from 30 to 6, dramatically
+// reducing memory pressure during initial load and tab switching.
+const OverviewTab = dynamic(() => import("./tabs/overview-tab").then(m => m.OverviewTab), {
+  ssr: false,
+  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /><Skeleton className="h-[400px] rounded-xl" /></div>,
+});
+const RiskTab = dynamic(() => import("./tabs/risk-tab").then(m => m.RiskTab), {
+  ssr: false,
+  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /><Skeleton className="h-[400px] rounded-xl" /></div>,
+});
+const StressTab = dynamic(() => import("./tabs/stress-tab").then(m => m.StressTab), {
+  ssr: false,
+  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /><Skeleton className="h-[400px] rounded-xl" /></div>,
+});
+const AdvancedTab = dynamic(() => import("./tabs/advanced-tab").then(m => m.AdvancedTab), {
+  ssr: false,
+  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /><Skeleton className="h-[400px] rounded-xl" /></div>,
+});
+const ToolsTab = dynamic(() => import("./tabs/tools-tab").then(m => m.ToolsTab), {
+  ssr: false,
+  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /></div>,
+});
+const ReportsTab = dynamic(() => import("./tabs/reports-tab").then(m => m.ReportsTab), {
+  ssr: false,
+  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /></div>,
+});
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -72,7 +61,6 @@ function Section({ children, i }: { children: React.ReactNode; i: number }) {
   );
 }
 
-// Tab definitions
 type TabId = "overview" | "risk" | "stress" | "advanced" | "tools" | "reports";
 
 const TABS: { id: TabId; label: string; icon: React.ElementType; hint: string }[] = [
@@ -90,6 +78,9 @@ export function VarDashboard() {
   const refresh = () => force();
   const [activeTab, setActiveTab] = React.useState<TabId>("overview");
 
+  // Shared props for all tabs
+  const tabProps = { report, market, controls, setControls, useRealData, activePortfolioName, setActivePortfolioName, isDirty, markClean };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
@@ -104,7 +95,6 @@ export function VarDashboard() {
               <p className="text-[11px] text-muted-foreground leading-tight">Value-at-Risk Risk Model</p>
             </div>
           </div>
-          {/* Compact status badges */}
           <div className="hidden md:flex items-center gap-1.5 ml-3">
             {useRealData ? (
               <Badge variant="secondary" className="text-[10px] h-5 bg-emerald-500/15 text-emerald-500 border-emerald-500/30">
@@ -217,89 +207,14 @@ export function VarDashboard() {
               <KpiCards report={report} method={controls.method} />
             </Section>
 
-            {/* Tab content — only render the active tab's panels */}
+            {/* Tab content — only the active tab's chunk is loaded */}
             <TabErrorBoundary tabId={activeTab}>
-            {activeTab === "overview" && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <Section i={1}><MethodologyComparison report={report} activeMethod={controls.method} /></Section>
-                  <Section i={2}><PnlDistribution report={report} method={controls.method} /></Section>
-                </div>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <Section i={3}><PortfolioPanel report={report} /></Section>
-                  <Section i={4}><MarketPanel market={market} /></Section>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "risk" && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <Section i={1}><VarTrendPanel report={report} method={controls.method} /></Section>
-                  <Section i={2}><LiquidityPanel report={report} /></Section>
-                </div>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <Section i={3}><BacktestPanel report={report} method={controls.method} /></Section>
-                  <Section i={4}><McPathsPanel report={report} method={controls.method} /></Section>
-                </div>
-                <Section i={5}><ExceptionDeepDivePanel controls={controls} /></Section>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <Section i={6}><DecompositionPanel report={report} /></Section>
-                  <Section i={7}><StressPanel report={report} /></Section>
-                </div>
-                <Section i={8}><SensitivityPanel controls={controls} /></Section>
-              </div>
-            )}
-
-            {activeTab === "stress" && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <Section i={1}><ReverseStressPanel report={report} controls={controls} /></Section>
-                  <Section i={2}><PnlAttributionPanel report={report} /></Section>
-                </div>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <Section i={3}><LimitMonitoringPanel controls={controls} /></Section>
-                  <Section i={4}><ScenarioBuilderPanel controls={controls} /></Section>
-                </div>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <Section i={5}><BreachFeedPanel /></Section>
-                  <Section i={6}><UtilizationHeatmapPanel /></Section>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "advanced" && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <Section i={1}><DerivativesPanel /></Section>
-                  <Section i={2}><HistoricalComparisonPanel /></Section>
-                </div>
-                <Section i={3}><ModellabilityPanel /></Section>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <Section i={4}><ConcentrationPanel controls={controls} /></Section>
-                  <Section i={5}><PerformancePanel controls={controls} /></Section>
-                </div>
-                <Section i={6}><CorrelationRegimePanel controls={controls} /></Section>
-                <Section i={7}><VolatilityRegimePanel controls={controls} /></Section>
-              </div>
-            )}
-
-            {activeTab === "tools" && (
-              <div className="space-y-3">
-                <Section i={1}><WhatIfSimulatorPanel controls={controls} report={report} /></Section>
-                <Section i={2}><OptimizerPanel controls={controls} /></Section>
-                <Section i={3}><SavedPortfoliosPanel controls={controls} setControls={setControls} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} /></Section>
-              </div>
-            )}
-
-            {activeTab === "reports" && (
-              <div className="space-y-3">
-                <Section i={1}><CustomReportPanel controls={controls} useRealData={useRealData} activePortfolioName={activePortfolioName} /></Section>
-                <Section i={2}>
-                  <MethodologyReference />
-                </Section>
-              </div>
-            )}
+              {activeTab === "overview" && <OverviewTab {...tabProps} />}
+              {activeTab === "risk" && <RiskTab {...tabProps} />}
+              {activeTab === "stress" && <StressTab {...tabProps} />}
+              {activeTab === "advanced" && <AdvancedTab {...tabProps} />}
+              {activeTab === "tools" && <ToolsTab {...tabProps} />}
+              {activeTab === "reports" && <ReportsTab {...tabProps} />}
             </TabErrorBoundary>
           </>
         ) : null}
@@ -333,41 +248,6 @@ function LoadingState() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
         <Skeleton className="h-[420px] rounded-xl" />
         <Skeleton className="h-[420px] rounded-xl" />
-      </div>
-    </div>
-  );
-}
-
-function MethodologyReference() {
-  const refs = [
-    { name: "Parametric (Var-Cov)", short: "Parametric", desc: "Assumes jointly normal returns. Fast, captures diversification via the covariance matrix, but underestimates fat tails and fails for non-linear instruments (options, MBS)." },
-    { name: "Historical Simulation", short: "Historical", desc: "Non-parametric: re-values the portfolio under every historical move. Captures empirical fat tails & correlations but is anchored to the chosen window — 'ghost features' as shocks enter/exit." },
-    { name: "Monte Carlo", short: "Monte Carlo", desc: "Simulates thousands of correlated paths from fitted stochastic processes. Most flexible — handles path-dependency & non-linearity, but compute-heavy and exposed to process-specification model risk." },
-    { name: "Filtered HS (EWMA)", short: "Filtered HS", desc: "EWMA-GARCH filter standardizes historical returns, then bootstraps residuals scaled to current volatility. Adapts fast to vol regimes while keeping empirical correlation structure." },
-    { name: "EVT (GPD)", short: "EVT", desc: "Fits a Generalized Pareto Distribution to the tail beyond a threshold. Improves accuracy at very high confidence (99.5%+) where historical data is sparse — often used as an overlay." },
-  ];
-  return (
-    <div className="rounded-xl border bg-card p-4">
-      <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
-        <BookOpen className="h-4 w-4 text-muted-foreground" />
-        Methodology Reference
-      </h3>
-      <p className="text-[11px] text-muted-foreground mb-3">
-        A robust risk framework reports a range of VaRs across methods — the spread itself is a measure of model risk. No single number should be trusted in isolation.
-      </p>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {refs.map((r) => (
-          <div key={r.name} className="rounded-lg border bg-muted/20 p-3 hover:bg-muted/30 transition-colors">
-            <div className="text-xs font-semibold mb-1">{r.name}</div>
-            <div className="text-[11px] text-muted-foreground leading-relaxed">{r.desc}</div>
-          </div>
-        ))}
-        <div className="rounded-lg border bg-gradient-to-br from-rose-500/10 to-amber-500/10 p-3">
-          <div className="text-xs font-semibold mb-1 text-rose-500">Complementary Measures</div>
-          <div className="text-[11px] text-muted-foreground leading-relaxed">
-            VaR is never used alone. This engine also reports <span className="font-medium text-foreground">Expected Shortfall</span> (coherent, tail-shape aware, the FRTB metric), <span className="font-medium text-foreground">stress tests</span>, <span className="font-medium text-foreground">Greeks-style decomposition</span>, <span className="font-medium text-foreground">liquidity-adjusted VaR</span>, <span className="font-medium text-foreground">reverse stress</span>, <span className="font-medium text-foreground">P&amp;L attribution</span>, and <span className="font-medium text-foreground">backtesting</span> to form a complete risk picture.
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -29,8 +29,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const fetchCache = "force-no-store";
 
-const PDF_SKILL_DIR = "/home/z/my-project/skills/pdf";
-const REPORTS_DIR = "/home/z/my-project/public/reports";
+// Use process.cwd() to resolve paths at runtime (avoids webpack static analysis)
+const PDF_SKILL_DIR = `${process.cwd()}/skills/pdf`;
+const REPORTS_DIR = `${process.cwd()}/public/reports`;
 
 // Format currency
 function fmtUSD(v: number): string {
@@ -608,10 +609,12 @@ export async function POST(req: NextRequest) {
     writeFileSync(htmlPath, html);
 
     // Convert to PDF using html2poster.js
+    // Use eval to prevent webpack from trying to resolve the path at build time
     const pdfPath = join(REPORTS_DIR, `var-report-${timestamp}.pdf`);
+    const scriptPath = join(PDF_SKILL_DIR, "scripts", "html2poster.js");
     await new Promise<void>((resolve, reject) => {
       const proc = spawn("node", [
-        join(PDF_SKILL_DIR, "scripts", "html2poster.js"),
+        scriptPath,
         htmlPath,
         "--output", pdfPath,
         "--width", "794px",

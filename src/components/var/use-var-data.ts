@@ -50,13 +50,13 @@ const DEFAULT_CONTROLS: VarControls = {
   seed: 42,
   totalValue: 10_000_000,
   positions: [
-    { symbol: "SPY", quantity: 800 },
+    { symbol: "SPX", quantity: 800 },
     { symbol: "AAPL", quantity: 12000 },
     { symbol: "XOM", quantity: 18000 },
     { symbol: "TLT", quantity: 45000 },
-    { symbol: "EURUSD=X", quantity: 4_000_000 },
-    { symbol: "GLD", quantity: 1400 },
-    { symbol: "BTC-USD", quantity: 45 },
+    { symbol: "EURUSD", quantity: 4_000_000 },
+    { symbol: "GOLD", quantity: 1400 },
+    { symbol: "BTC", quantity: 45 },
   ],
 };
 
@@ -67,7 +67,7 @@ export function useVarData(): VarData {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = React.useState<string | null>(null);
-  const [useRealData, setUseRealData] = React.useState<boolean>(true);
+  const [useRealData, setUseRealData] = React.useState<boolean>(false);
   const [dataSource, setDataSource] = React.useState<VarData["dataSource"]>(null);
   const [activePortfolioName, setActivePortfolioName] = React.useState<string | null>(null);
   const [isDirty, setIsDirty] = React.useState<boolean>(false);
