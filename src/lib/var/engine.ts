@@ -109,16 +109,16 @@ export function buildFullReport(
 
   const positions = portfolio.positions.map((p, idx) => {
     const assetIdx = market.assets.findIndex((a) => a.symbol === p.symbol);
-    const asset = market.assets[assetIdx];
+    const asset = assetIdx >= 0 ? market.assets[assetIdx] : undefined;
     return {
       symbol: p.symbol,
       quantity: p.quantity,
-      name: asset.name,
-      assetClass: asset.assetClass,
-      weight: weights[assetIdx],
-      marketValue: marketValues[assetIdx],
+      name: asset?.name ?? p.symbol,
+      assetClass: asset?.assetClass ?? "equity",
+      weight: assetIdx >= 0 ? weights[assetIdx] : 0,
+      marketValue: assetIdx >= 0 ? marketValues[assetIdx] : 0,
     };
-  });
+  }).filter((p) => p.marketValue > 0);
 
   return {
     portfolio: {

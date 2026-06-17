@@ -129,7 +129,7 @@ function SectionDivider({ label, hint }: { label: string; hint?: string }) {
 }
 
 export function VarDashboard() {
-  const { report, market, loading, error, controls, setControls, lastUpdated } = useVarData();
+  const { report, market, loading, error, controls, setControls, lastUpdated, useRealData, setUseRealData, dataSource } = useVarData();
   const [, force] = React.useReducer((x) => x + 1, 0);
   const refresh = () => force();
 
@@ -148,6 +148,16 @@ export function VarDashboard() {
             </div>
           </div>
           <div className="hidden md:flex items-center gap-1.5 ml-3">
+            {useRealData ? (
+              <Badge variant="secondary" className="text-[10px] h-5 bg-emerald-500/15 text-emerald-500 border-emerald-500/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse mr-1" />
+                LIVE DATA
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px] h-5 bg-muted/30 text-muted-foreground border-muted-foreground/30">
+                SYNTHETIC
+              </Badge>
+            )}
             <Badge variant="secondary" className="text-[10px] h-5">5 methodologies</Badge>
             <Badge variant="secondary" className="text-[10px] h-5">FRTB-aligned</Badge>
             <Badge variant="secondary" className="text-[10px] h-5">Basel backtest</Badge>
@@ -187,8 +197,36 @@ export function VarDashboard() {
         <div
           className="rounded-xl border bg-card p-3 md:p-4 shadow-sm"
         >
-          <ControlBar controls={controls} setControls={setControls} onRefresh={refresh} loading={loading} />
+          <ControlBar controls={controls} setControls={setControls} onRefresh={refresh} loading={loading} useRealData={useRealData} setUseRealData={setUseRealData} />
         </div>
+
+        {/* Data source banner */}
+        {dataSource && dataSource.dataSource && (
+          <div className={`rounded-lg border px-3 py-2 text-xs ${dataSource.dataSource === "real" ? "bg-emerald-500/5 border-emerald-500/20" : dataSource.dataSource === "mixed" ? "bg-amber-500/5 border-amber-500/20" : "bg-rose-500/5 border-rose-500/20"}`}>
+            <div className="flex items-center gap-2 flex-wrap">
+              {dataSource.dataSource === "real" && <span className="text-emerald-500 font-medium">🟢 Live Data</span>}
+              {dataSource.dataSource === "mixed" && <span className="text-amber-500 font-medium">🟡 Mixed Data</span>}
+              {dataSource.dataSource === "synthetic-fallback" && <span className="text-rose-500 font-medium">🔴 Synthetic Fallback</span>}
+              <span className="text-muted-foreground">
+                · {dataSource.fetched?.length || 0} symbols fetched from Yahoo Finance
+              </span>
+              {dataSource.fetched && dataSource.fetched.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {dataSource.fetched.map((f) => (
+                    <span key={f.symbol} className="rounded bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono" title={`${f.name} · ${f.assetClass} · $${f.spot.toFixed(2)} · ${f.prices} prices`}>
+                      {f.symbol}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {dataSource.failed && dataSource.failed.length > 0 && (
+                <span className="text-rose-500 text-[10px]">
+                  · failed: {dataSource.failed.map((f) => f.symbol).join(", ")}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {error && (
           <Alert variant="destructive">

@@ -1029,3 +1029,128 @@ Task: QA pass + add Risk Factor Sensitivity (DV01), Volatility Regime & GARCH(1,
    Black-Litterman or analyst consensus for more realistic Max Sharpe.
 5. **VaR breach email/webhook alerts** — configurable alert routing when a
    reading breaches (uses the VarReading audit table).
+
+---
+Task ID: 19 (real market data integration)
+Agent: main
+Task: Add real market data integration (Yahoo Finance API) and support for custom ticker symbols in the portfolio.
+
+## Current project status (assessment)
+- Rounds 1-9 delivered a stable dashboard with 25+ panels using synthetic market data.
+- User requested: (1) real-life data automatically, (2) support for custom tickers like SPXS.
+- Both features implemented end-to-end.
+
+## Completed modifications
+
+### New backend module: Real Market Data Fetcher
+- src/lib/var/real-market-data.ts — Yahoo Finance API integration:
+  • fetchYahooSymbol(symbol, range) — fetches historical OHLCV from
+    https://query1.finance.yahoo.com/v8/finance/chart/{symbol}
+  • Classifies asset class from Yahoo's instrumentType + symbol heuristics
+    (equity/fx/commodity/rate/crypto).
+  • Estimates annual drift & vol from price series.
+  • 15-minute in-memory cache per symbol (avoids rate-limiting).
+  • getRealMarketData(symbols, days) — fetches multiple symbols, aligns dates
+    (intersection), forward-fills missing prices, computes covariance/mean/vol.
+  • Falls back to synthetic data if ALL symbols fail or overlap < 30 days.
+  • validateTicker(symbol) — fast validation for UI "add ticker" flow.
+  • Returns RealDataFetchSummary showing which symbols fetched vs failed.
+
+### Updated cache module
+- src/lib/var/cache.ts — added getRealMarketDataCached(symbols, days) with
+  10-minute TTL. Synthetic cache unchanged.
+
+### New API routes
+- src/app/api/var/real-report/route.ts — GET endpoint that fetches real data
+  for the portfolio's symbols and runs the full VaR engine. Returns report +
+  dataSource summary. ~1-2s (fetch + compute).
+- src/app/api/var/real-market/route.ts — GET endpoint returning compact market
+  series (downsampled prices, correlation matrix, asset metadata) for charting.
+- src/app/api/var/validate-ticker/route.ts — GET endpoint for ticker validation
+  (used by the UI "add custom ticker" flow). ~100ms.
+
+### Updated frontend
+- src/components/var/control-bar.tsx — REWRITTEN:
+  • New "Data Source" toggle: Synthetic vs Real Data (green button with
+    TrendingUp icon when real).
+  • Portfolio editor dialog completely redesigned:
+    - Custom ticker search box with "Validate" button (calls
+      /api/var/validate-ticker, shows green check + name + price on success,
+      red X + error on failure).
+    - 18 quick-pick popular tickers (SPY, QQQ, AAPL, TSLA, NVDA, MSFT, AMZN,
+      GOOGL, META, TLT, GLD, SPXS, SPXL, TBT, BTC-USD, ETH-USD, USO, EURUSD=X)
+      as one-click add buttons.
+    - Position list now uses text inputs for symbol (not dropdown) so users
+      can type any ticker.
+    - Removed the 7-symbol hardcoded limit.
+  • Export button now uses real-report endpoint when in real data mode.
+  • Status indicator shows "🟢 live data" or "seed N" based on data source.
+- src/components/var/use-var-data.ts — Updated:
+  • Added useRealData state (default: true — real data is the default).
+  • Switches between /api/var/report (synthetic) and /api/var/real-report (real)
+    based on toggle.
+  • Default portfolio changed to use Yahoo-compatible symbols: SPY (was SPX),
+    AAPL, XOM, TLT, EURUSD=X (was EURUSD), GLD (was GOLD), BTC-USD (was BTC).
+  • Captures dataSource summary from real-report response.
+- src/components/var/var-dashboard.tsx — Updated:
+  • Added LIVE DATA / SYNTHETIC badge to header (animated pulse dot for live).
+  • Added data source banner below control bar showing:
+    - Green "🟢 Live Data" / Yellow "🟡 Mixed Data" / Red "🔴 Synthetic Fallback"
+    - Number of symbols fetched from Yahoo Finance
+    - Symbol chips with tooltips (name + asset class + price + price count)
+    - Failed symbols list (if any)
+  • Passes useRealData + setUseRealData + dataSource to control bar.
+
+### Bug fix
+- src/lib/var/engine.ts — Fixed `Cannot read properties of undefined (reading
+  'name')` when a portfolio position's symbol doesn't exist in market.assets.
+  Now guards with `assetIdx >= 0` and filters out positions with 0 market value.
+
+## Verification results
+- ESLint: 0 errors, 0 warnings.
+- Ticker validation API tested with 8 symbols — all VALID:
+  AAPL ($295.62), TSLA ($403.10), SPY ($748.72), SPXS ($26.63), QQQ ($733.35),
+  NVDA ($206.97), GLD ($396.26), TLT ($86.47). All correctly classified
+  (equity/rate/commodity).
+- Real-report API tested with custom portfolio (SPXS, AAPL, TLT, GLD):
+  • Data source: "real" (all 4 fetched successfully)
+  • 502 price points per symbol from Yahoo Finance
+  • VaR (Historical): $180,279 · ES: $230,575 · Backtest: GREEN (0 exceptions)
+- Real-report API tested with default portfolio (SPY, AAPL, XOM, TLT, EURUSD=X,
+  GLD, BTC-USD):
+  • All 7 symbols fetched from Yahoo Finance
+  • Live spot prices: SPY $748.65, AAPL $295.40, TLT $86.54, GLD $395.85,
+    BTC-USD $65,863.47
+  • VaR (Historical): $331,971 · ES: $384,877 · Backtest: GREEN (2 exceptions)
+- Dashboard UI verified via VLM:
+  • Green "LIVE DATA" badge in header ✓
+  • Data source banner with "7 symbols fetched from Yahoo Finance" ✓
+  • Symbol chips visible ✓
+  • KPI cards show values ✓
+  • Portfolio editor with ticker search + quick-pick buttons ✓
+
+## Key features delivered
+1. **Real market data** — Yahoo Finance API integration fetches live historical
+   prices for any ticker. 15-minute cache prevents rate-limiting. Falls back to
+   synthetic data if Yahoo is unreachable.
+2. **Custom tickers** — Users can type ANY ticker symbol (stocks, ETFs, crypto,
+   FX) in the portfolio editor. The "Validate" button confirms it exists on
+   Yahoo Finance and shows the name + price + asset class before adding.
+3. **Quick-pick popular tickers** — 18 one-click add buttons for common tickers
+   including SPXS (the Direxion S&P 500 Bear 3x ETF the user asked about).
+4. **Data source transparency** — Header badge + banner show whether data is
+   live/synthetic and which symbols were successfully fetched.
+
+## Unresolved issues / risks
+- Yahoo Finance API is unofficial and may rate-limit or change without notice.
+  The 15-minute cache mitigates this. A production system would use a paid API
+  (Alpha Vantage, IEX Cloud, Financial Modeling Prep) with an API key.
+- The default portfolio now uses Yahoo-compatible symbols (SPY instead of SPX,
+  BTC-USD instead of BTC, EURUSD=X instead of EURUSD, GLD instead of GOLD).
+  Saved portfolios from previous rounds may still use old symbols — they'll
+  fail validation in real-data mode but work in synthetic mode.
+- Real market data has ~500 trading days (2 years) of history vs synthetic's
+  504 days. Backtesting windows may differ slightly.
+- Crypto/FX symbols require Yahoo-specific suffixes (BTC-USD, EURUSD=X). The
+  UI quick-pick list handles this, but manually-typed crypto/FX symbols need
+  the correct suffix.

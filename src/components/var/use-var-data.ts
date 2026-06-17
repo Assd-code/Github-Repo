@@ -13,6 +13,7 @@ export interface MarketSeries {
   series: Record<string, number[]>;
   correlation: number[][];
   windowDays: number;
+  dataSource?: { dataSource?: string; fetched?: { symbol: string; name: string; assetClass: string; spot: number; prices: number }[]; failed?: { symbol: string; error: string }[] };
 }
 
 export interface VarControls {
@@ -32,6 +33,9 @@ export interface VarData {
   controls: VarControls;
   setControls: React.Dispatch<React.SetStateAction<VarControls>>;
   lastUpdated: string | null;
+  useRealData: boolean;
+  setUseRealData: React.Dispatch<React.SetStateAction<boolean>>;
+  dataSource: { dataSource?: string; fetched?: { symbol: string; name: string; assetClass: string; spot: number; prices: number }[]; failed?: { symbol: string; error: string }[] } | null;
 }
 
 const DEFAULT_CONTROLS: VarControls = {
@@ -41,13 +45,13 @@ const DEFAULT_CONTROLS: VarControls = {
   seed: 42,
   totalValue: 10_000_000,
   positions: [
-    { symbol: "SPX", quantity: 800 },
+    { symbol: "SPY", quantity: 800 },
     { symbol: "AAPL", quantity: 12000 },
     { symbol: "XOM", quantity: 18000 },
     { symbol: "TLT", quantity: 45000 },
-    { symbol: "EURUSD", quantity: 4_000_000 },
-    { symbol: "GOLD", quantity: 1400 },
-    { symbol: "BTC", quantity: 45 },
+    { symbol: "EURUSD=X", quantity: 4_000_000 },
+    { symbol: "GLD", quantity: 1400 },
+    { symbol: "BTC-USD", quantity: 45 },
   ],
 };
 
@@ -58,6 +62,8 @@ export function useVarData(): VarData {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = React.useState<string | null>(null);
+  const [useRealData, setUseRealData] = React.useState<boolean>(true);
+  const [dataSource, setDataSource] = React.useState<VarData["dataSource"]>(null);
 
   const positionsStr = React.useMemo(
     () => controls.positions.map((p) => `${p.symbol}:${p.quantity}`).join(","),
@@ -69,8 +75,18 @@ export function useVarData(): VarData {
     setLoading(true);
     setError(null);
 
-    const reportUrl = `/api/var/report?confidence=${controls.confidence}&horizon=${controls.horizon}&method=${controls.method}&seed=${controls.seed}&totalValue=${controls.totalValue}&positions=${encodeURIComponent(positionsStr)}`;
-    const marketUrl = `/api/var/market?seed=${controls.seed}`;
+    // Choose endpoint based on data source toggle
+    const reportBase = useRealData ? "/api/var/real-report" : "/api/var/report";
+    const marketBase = useRealData ? "/api/var/real-market" : "/api/var/market";
+
+    // For real data, pass symbols; for synthetic, pass seed
+    const symbolsParam = controls.positions.map((p) => p.symbol).join(",");
+    const reportUrl = useRealData
+      ? `${reportBase}?confidence=${controls.confidence}&horizon=${controls.horizon}&method=${controls.method}&totalValue=${controls.totalValue}&positions=${encodeURIComponent(positionsStr)}`
+      : `${reportBase}?confidence=${controls.confidence}&horizon=${controls.horizon}&method=${controls.method}&seed=${controls.seed}&totalValue=${controls.totalValue}&positions=${encodeURIComponent(positionsStr)}`;
+    const marketUrl = useRealData
+      ? `${marketBase}?symbols=${encodeURIComponent(symbolsParam)}`
+      : `${marketBase}?seed=${controls.seed}`;
 
     Promise.all([
       fetch(reportUrl).then((r) => r.json()),
@@ -82,6 +98,12 @@ export function useVarData(): VarData {
         if (!mkt.ok) throw new Error(mkt.error || "Failed to load market data");
         setReport(rep.report as FullReport);
         setMarket(mkt as MarketSeries);
+        // Capture data source info from real-report
+        if (useRealData && rep.dataSource) {
+          setDataSource(rep.dataSource);
+        } else {
+          setDataSource(null);
+        }
         setLastUpdated(new Date().toISOString());
       })
       .catch((e) => {
@@ -94,7 +116,7 @@ export function useVarData(): VarData {
     return () => {
       cancelled = true;
     };
-  }, [controls.confidence, controls.horizon, controls.method, controls.seed, controls.totalValue, positionsStr]);
+  }, [controls.confidence, controls.horizon, controls.method, controls.seed, controls.totalValue, positionsStr, useRealData]);
 
-  return { report, market, loading, error, controls, setControls, lastUpdated };
+  return { report, market, loading, error, controls, setControls, lastUpdated, useRealData, setUseRealData, dataSource };
 }
