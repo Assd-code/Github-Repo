@@ -10,42 +10,42 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertCircle, BookOpen, LayoutDashboard, BarChart3, ShieldAlert, Microscope, SlidersHorizontal, FileText } from "lucide-react";
+import { Activity, AlertCircle, BookOpen, LayoutDashboard, BarChart3, Microscope, SlidersHorizontal } from "lucide-react";
 import { TabErrorBoundary } from "./tab-error-boundary";
 
-// ONE dynamic import per tab — each tab's panels are bundled into a single chunk.
-// This reduces the number of dynamic import wrappers from 30 to 6, dramatically
-// reducing memory pressure during initial load and tab switching.
+// ONE dynamic import per tab — 4 tabs, each is a small chunk.
 const OverviewTab = dynamic(() => import("./tabs/overview-tab").then(m => m.OverviewTab), {
   ssr: false,
-  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /><Skeleton className="h-[400px] rounded-xl" /></div>,
+  loading: () => <TabSkeleton />,
 });
-const RiskTab = dynamic(() => import("./tabs/risk-tab").then(m => m.RiskTab), {
+const AnalysisTab = dynamic(() => import("./tabs/analysis-tab").then(m => m.AnalysisTab), {
   ssr: false,
-  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /><Skeleton className="h-[400px] rounded-xl" /></div>,
-});
-const StressTab = dynamic(() => import("./tabs/stress-tab").then(m => m.StressTab), {
-  ssr: false,
-  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /><Skeleton className="h-[400px] rounded-xl" /></div>,
+  loading: () => <TabSkeleton />,
 });
 const AdvancedTab = dynamic(() => import("./tabs/advanced-tab").then(m => m.AdvancedTab), {
   ssr: false,
-  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /><Skeleton className="h-[400px] rounded-xl" /></div>,
+  loading: () => <TabSkeleton />,
 });
 const ToolsTab = dynamic(() => import("./tabs/tools-tab").then(m => m.ToolsTab), {
   ssr: false,
-  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /></div>,
+  loading: () => <TabSkeleton />,
 });
-const ReportsTab = dynamic(() => import("./tabs/reports-tab").then(m => m.ReportsTab), {
-  ssr: false,
-  loading: () => <div className="space-y-3"><Skeleton className="h-[400px] rounded-xl" /></div>,
-});
+
+function TabSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        <Skeleton className="h-[400px] rounded-xl" />
+        <Skeleton className="h-[400px] rounded-xl" />
+      </div>
+    </div>
+  );
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
   show: (i: number) => ({
-    opacity: 1,
-    y: 0,
+    opacity: 1, y: 0,
     transition: { duration: 0.4, delay: Math.min(i * 0.05, 0.3), ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
   }),
 };
@@ -54,22 +54,16 @@ function Section({ children, i }: { children: React.ReactNode; i: number }) {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   if (!mounted) return <div>{children}</div>;
-  return (
-    <motion.div custom={i} variants={fadeUp} initial="hidden" animate="show">
-      {children}
-    </motion.div>
-  );
+  return <motion.div custom={i} variants={fadeUp} initial="hidden" animate="show">{children}</motion.div>;
 }
 
-type TabId = "overview" | "risk" | "stress" | "advanced" | "tools" | "reports";
+type TabId = "overview" | "analysis" | "advanced" | "tools";
 
 const TABS: { id: TabId; label: string; icon: React.ElementType; hint: string }[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard, hint: "KPIs · methodology · P&L · portfolio" },
-  { id: "risk", label: "Risk Measurement", icon: BarChart3, hint: "VaR trend · backtest · decomposition · stress" },
-  { id: "stress", label: "Stress & Limits", icon: ShieldAlert, hint: "Reverse stress · PLA · limits · breaches · scenarios" },
-  { id: "advanced", label: "Advanced Analytics", icon: Microscope, hint: "Greeks · GARCH · concentration · sensitivity · regimes" },
-  { id: "tools", label: "Interactive Tools", icon: SlidersHorizontal, hint: "What-if · optimizer · portfolio manager" },
-  { id: "reports", label: "Reports & Data", icon: FileText, hint: "Custom PDF report · market data · methodology reference" },
+  { id: "overview", label: "Overview", icon: LayoutDashboard, hint: "KPIs · methodology · P&L · portfolio · market data" },
+  { id: "analysis", label: "Analysis", icon: BarChart3, hint: "Backtest · stress · decomposition · sensitivity · limits · breaches" },
+  { id: "advanced", label: "Advanced", icon: Microscope, hint: "Greeks · GARCH · concentration · performance · regimes" },
+  { id: "tools", label: "Tools & Reports", icon: SlidersHorizontal, hint: "What-if · optimizer · portfolio manager · custom PDF report" },
 ];
 
 export function VarDashboard() {
@@ -78,7 +72,6 @@ export function VarDashboard() {
   const refresh = () => force();
   const [activeTab, setActiveTab] = React.useState<TabId>("overview");
 
-  // Shared props for all tabs
   const tabProps = { report, market, controls, setControls, useRealData, activePortfolioName, setActivePortfolioName, isDirty, markClean };
 
   return (
@@ -128,17 +121,17 @@ export function VarDashboard() {
           </div>
         </div>
 
-        {/* Tab navigation bar */}
+        {/* Tab navigation bar — only 3 tabs */}
         <div className="border-t bg-background/95 backdrop-blur-md">
           <div className="mx-auto max-w-[1400px] px-4 md:px-6">
-            <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-thin -mb-px">
+            <div className="flex items-center gap-0.5 -mb-px">
               {TABS.map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
+                    className={`flex items-center gap-1.5 px-4 md:px-6 py-2.5 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
                       isActive
                         ? "border-primary text-primary"
                         : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
@@ -146,8 +139,7 @@ export function VarDashboard() {
                     title={tab.hint}
                   >
                     <tab.icon className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">{tab.label}</span>
-                    <span className="sm:hidden">{tab.label.split(" ")[0]}</span>
+                    {tab.label}
                   </button>
                 );
               })}
@@ -169,22 +161,15 @@ export function VarDashboard() {
               {dataSource.dataSource === "real" && <span className="text-emerald-500 font-medium">🟢 Live Data</span>}
               {dataSource.dataSource === "mixed" && <span className="text-amber-500 font-medium">🟡 Mixed Data</span>}
               {dataSource.dataSource === "synthetic-fallback" && <span className="text-rose-500 font-medium">🔴 Synthetic Fallback</span>}
-              <span className="text-muted-foreground">
-                · {dataSource.fetched?.length || 0} symbols fetched from Yahoo Finance
-              </span>
+              <span className="text-muted-foreground">· {dataSource.fetched?.length || 0} symbols from Yahoo Finance</span>
               {dataSource.fetched && dataSource.fetched.length > 0 && (
                 <div className="flex items-center gap-1 flex-wrap">
                   {dataSource.fetched.map((f) => (
-                    <span key={f.symbol} className="rounded bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono" title={`${f.name} · ${f.assetClass} · $${f.spot.toFixed(2)} · ${f.prices} prices`}>
+                    <span key={f.symbol} className="rounded bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono" title={`${f.name} · $${f.spot.toFixed(2)}`}>
                       {f.symbol}
                     </span>
                   ))}
                 </div>
-              )}
-              {dataSource.failed && dataSource.failed.length > 0 && (
-                <span className="text-rose-500 text-[10px]">
-                  · failed: {dataSource.failed.map((f) => f.symbol).join(", ")}
-                </span>
               )}
             </div>
           </div>
@@ -202,19 +187,17 @@ export function VarDashboard() {
           <LoadingState />
         ) : report ? (
           <>
-            {/* KPI cards — always visible across all tabs */}
+            {/* KPI cards — always visible */}
             <Section i={0}>
               <KpiCards report={report} method={controls.method} />
             </Section>
 
-            {/* Tab content — only the active tab's chunk is loaded */}
+            {/* Tab content — only 3 tabs, each is a single chunk */}
             <TabErrorBoundary tabId={activeTab}>
               {activeTab === "overview" && <OverviewTab {...tabProps} />}
-              {activeTab === "risk" && <RiskTab {...tabProps} />}
-              {activeTab === "stress" && <StressTab {...tabProps} />}
+              {activeTab === "analysis" && <AnalysisTab {...tabProps} />}
               {activeTab === "advanced" && <AdvancedTab {...tabProps} />}
               {activeTab === "tools" && <ToolsTab {...tabProps} />}
-              {activeTab === "reports" && <ReportsTab {...tabProps} />}
             </TabErrorBoundary>
           </>
         ) : null}
@@ -228,9 +211,7 @@ export function VarDashboard() {
             <span>·</span>
             <span>Educational risk-model implementation — not investment advice.</span>
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-center">
-            <span>5 VaR methods · FRTB · Basel III · 10+ analysis panels</span>
-          </div>
+          <span>5 VaR methods · FRTB · Basel III</span>
         </div>
       </footer>
     </div>
@@ -245,10 +226,7 @@ function LoadingState() {
           <Skeleton key={i} className="h-[88px] rounded-lg" />
         ))}
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-        <Skeleton className="h-[420px] rounded-xl" />
-        <Skeleton className="h-[420px] rounded-xl" />
-      </div>
+      <TabSkeleton />
     </div>
   );
 }

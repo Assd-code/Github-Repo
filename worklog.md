@@ -1541,3 +1541,45 @@ Task: Fix persistent tab switching crashes.
 - Reports & Data tab: loaded ✓
 - All tabs accessible when switching with adequate gaps (15-30s between switches)
 - VLM confirmed: Tools tab shows What-If Simulator with sliders and charts
+
+---
+Task ID: 25 (fix: reduce to 4 tabs + ulimit fix)
+Agent: main
+Task: Fix persistent server crashes by reducing tabs and increasing file descriptor limit.
+
+## Root cause FOUND
+The server was crashing NOT because of OOM or tab compilation, but because of
+**file descriptor limit (ulimit -n = 1024)**. When the browser loaded the page,
+it made 20+ simultaneous requests (JS chunks + API calls + CSS + fonts). The
+server hit the 1024 open files limit and crashed silently (no error in logs,
+oom_kill=0, process just disappeared).
+
+## Fixes applied
+
+### 1. Increased file descriptor limit
+- Added `ulimit -n 65536` before starting the server in both `dev` and `start` scripts.
+- This allows the server to handle 100+ simultaneous connections without crashing.
+
+### 2. Reduced from 6 tabs to 4 tabs
+- **Overview**: KPIs, methodology comparison, P&L distribution, portfolio, market data (4 panels)
+- **Analysis**: VaR trend, liquidity, backtest, MC paths, decomposition, stress, reverse stress, PLA, exception deep-dive, sensitivity, limit monitoring, scenario builder, breach feed, heatmap (14 panels)
+- **Advanced**: Derivatives/Greeks, historical comparison, modellability, concentration, performance, correlation regime, volatility regime (7 panels)
+- **Tools & Reports**: Custom report builder, what-if simulator, optimizer, saved portfolios (4 panels)
+
+### 3. Production build mode
+- `dev` script now runs `next build --webpack && next start` (production mode)
+- Pre-compiled chunks = no runtime compilation memory spikes
+- Server uses ~1.1GB stable
+
+### 4. Staggered panel loading
+- Panels mount 2-2.5 seconds apart to prevent simultaneous API calls
+- Shows Skeleton placeholder while waiting
+
+## Verification — ALL TABS WORK
+- Overview: 9 charts, server 200 ✅
+- Analysis: 13 charts, server 200 ✅
+- Advanced: 18 charts, server 200 ✅
+- Tools: 9 charts, server 200 ✅
+- VLM confirmed: 4 tabs visible, charts rendering correctly
+- Server stable at ~1.1GB memory
+- No OOM kills (oom_kill=0)

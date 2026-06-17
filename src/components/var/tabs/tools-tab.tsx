@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { WhatIfSimulatorPanel } from "../whatif-simulator-panel";
 import { OptimizerPanel } from "../optimizer-panel";
 import { SavedPortfoliosPanel } from "../saved-portfolios-panel";
+import { CustomReportPanel } from "../custom-report-panel";
 import type { FullReport } from "@/lib/var/types";
 import type { MarketSeries, VarControls } from "../use-var-data";
 
@@ -24,11 +25,11 @@ function Section({ children, i }: { children: React.ReactNode; i: number }) {
   return <motion.div custom={i} variants={fadeUp} initial="hidden" animate="show">{children}</motion.div>;
 }
 
-function StaggeredSection({ children, i, delay = 3000 }: { children: React.ReactNode; i: number; delay?: number }) {
+function Staggered({ children, i, delay = 3000 }: { children: React.ReactNode; i: number; delay?: number }) {
   const [visible, setVisible] = React.useState(false);
   React.useEffect(() => {
-    const timer = setTimeout(() => setVisible(true), i * delay);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setVisible(true), i * delay);
+    return () => clearTimeout(t);
   }, [i, delay]);
   if (!visible) return <Skeleton className="h-[400px] rounded-xl" />;
   return <Section i={i}>{children}</Section>;
@@ -46,12 +47,13 @@ interface TabProps {
   markClean: () => void;
 }
 
-export function ToolsTab({ report, controls, setControls, activePortfolioName, setActivePortfolioName, isDirty, markClean }: TabProps) {
+export function ToolsTab({ report, controls, setControls, useRealData, activePortfolioName, setActivePortfolioName, isDirty, markClean }: TabProps) {
   return (
     <div className="space-y-3">
-      <StaggeredSection i={0}><WhatIfSimulatorPanel controls={controls} report={report} /></StaggeredSection>
-      <StaggeredSection i={1}><OptimizerPanel controls={controls} /></StaggeredSection>
-      <StaggeredSection i={2}><SavedPortfoliosPanel controls={controls} setControls={setControls} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} /></StaggeredSection>
+      <Staggered i={0}><CustomReportPanel controls={controls} useRealData={useRealData} activePortfolioName={activePortfolioName} /></Staggered>
+      <Staggered i={1}><WhatIfSimulatorPanel controls={controls} report={report} /></Staggered>
+      <Staggered i={2}><OptimizerPanel controls={controls} /></Staggered>
+      <Staggered i={3}><SavedPortfoliosPanel controls={controls} setControls={setControls} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} /></Staggered>
     </div>
   );
 }

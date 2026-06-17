@@ -3,9 +3,9 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "next build --webpack && next start -p 3000 2>&1 | tee dev.log",
+    "dev": "ulimit -n 65536; next build --webpack && next start -p 3000 2>&1 | tee dev.log",
     "build": "next build --webpack",
-    "start": "next start -p 3000",
+    "start": "ulimit -n 65536; next start -p 3000",
     "lint": "eslint .",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",

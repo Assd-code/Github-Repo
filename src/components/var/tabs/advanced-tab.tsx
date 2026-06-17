@@ -28,11 +28,11 @@ function Section({ children, i }: { children: React.ReactNode; i: number }) {
   return <motion.div custom={i} variants={fadeUp} initial="hidden" animate="show">{children}</motion.div>;
 }
 
-function StaggeredSection({ children, i, delay = 3000 }: { children: React.ReactNode; i: number; delay?: number }) {
+function Staggered({ children, i, delay = 2500 }: { children: React.ReactNode; i: number; delay?: number }) {
   const [visible, setVisible] = React.useState(false);
   React.useEffect(() => {
-    const timer = setTimeout(() => setVisible(true), i * delay);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setVisible(true), i * delay);
+    return () => clearTimeout(t);
   }, [i, delay]);
   if (!visible) return <Skeleton className="h-[400px] rounded-xl" />;
   return <Section i={i}>{children}</Section>;
@@ -54,16 +54,16 @@ export function AdvancedTab({ controls }: TabProps) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-        <StaggeredSection i={0}><DerivativesPanel /></StaggeredSection>
-        <StaggeredSection i={1}><HistoricalComparisonPanel /></StaggeredSection>
+        <Staggered i={0}><DerivativesPanel /></Staggered>
+        <Staggered i={1}><HistoricalComparisonPanel /></Staggered>
       </div>
-      <StaggeredSection i={2}><ModellabilityPanel /></StaggeredSection>
+      <Staggered i={2}><ModellabilityPanel /></Staggered>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-        <StaggeredSection i={3}><ConcentrationPanel controls={controls} /></StaggeredSection>
-        <StaggeredSection i={4}><PerformancePanel controls={controls} /></StaggeredSection>
+        <Staggered i={3}><ConcentrationPanel controls={controls} /></Staggered>
+        <Staggered i={4}><PerformancePanel controls={controls} /></Staggered>
       </div>
-      <StaggeredSection i={5}><CorrelationRegimePanel controls={controls} /></StaggeredSection>
-      <StaggeredSection i={6}><VolatilityRegimePanel controls={controls} /></StaggeredSection>
+      <Staggered i={5}><CorrelationRegimePanel controls={controls} /></Staggered>
+      <Staggered i={6}><VolatilityRegimePanel controls={controls} /></Staggered>
     </div>
   );
 }
