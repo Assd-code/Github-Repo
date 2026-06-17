@@ -29,7 +29,7 @@ function Section({ children, i }: { children: React.ReactNode; i: number }) {
   return <motion.div custom={i} variants={fadeUp} initial="hidden" animate="show">{children}</motion.div>;
 }
 
-function StaggeredSection({ children, i, delay = 400 }: { children: React.ReactNode; i: number; delay?: number }) {
+function StaggeredSection({ children, i, delay = 3000 }: { children: React.ReactNode; i: number; delay?: number }) {
   const [visible, setVisible] = React.useState(false);
   React.useEffect(() => {
     const timer = setTimeout(() => setVisible(true), i * delay);

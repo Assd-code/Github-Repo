@@ -29,7 +29,7 @@ function Section({ children, i }: { children: React.ReactNode; i: number }) {
 
 // Staggered mount: only shows children after a delay, preventing all panels
 // from making API calls simultaneously.
-function StaggeredSection({ children, i, delay = 400 }: { children: React.ReactNode; i: number; delay?: number }) {
+function StaggeredSection({ children, i, delay = 3000 }: { children: React.ReactNode; i: number; delay?: number }) {
   const [visible, setVisible] = React.useState(false);
   React.useEffect(() => {
     const timer = setTimeout(() => setVisible(true), i * delay);
