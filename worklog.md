@@ -1381,3 +1381,67 @@ Task: Add custom report builder with selectable sections/methods/charts, LLM-pow
 7. Wait ~6-10 seconds (LLM + PDF rendering)
 8. Preview the AI interpretation
 9. Click "Download PDF" or "View HTML"
+
+---
+Task ID: 22 (tabbed dashboard redesign)
+Agent: main
+Task: Redesign the dashboard with tab navigation to reduce bulkiness — users can switch between focused views instead of scrolling through 25+ panels.
+
+## Current project status (assessment)
+- The dashboard had grown to 25+ panels all rendered on a single scrolling page.
+- User feedback: "The app is too bulky, I would want some extra sub tab that I could choose to open or not"
+- The long page also caused dev server OOM issues (all panels compile simultaneously).
+
+## Completed modifications
+
+### Tab navigation system
+- src/components/var/var-dashboard.tsx — Complete redesign with 6 tabs:
+  1. **Overview** — KPI cards, methodology comparison, P&L distribution, portfolio holdings, market data (4 panels)
+  2. **Risk Measurement** — VaR trend, liquidity (FRTB), backtest, MC paths, exception deep-dive, decomposition, stress, sensitivity (8 panels)
+  3. **Stress & Limits** — Reverse stress, P&L attribution, limit monitoring, scenario builder, breach feed, utilization heatmap (6 panels)
+  4. **Advanced Analytics** — Derivatives/Greeks, historical comparison, modellability, concentration, performance, correlation regime, volatility regime (7 panels)
+  5. **Interactive Tools** — What-if simulator, portfolio optimizer, saved portfolios (3 panels)
+  6. **Reports & Data** — Custom report builder, methodology reference (2 panels)
+
+### Key design decisions
+- **KPI cards always visible** — the 6 KPI cards (VaR, ES, Portfolio Value, Method Spread, Backtest Zone, Worst Stress) with sparklines stay at the top across all tabs, giving instant context.
+- **Control bar always visible** — methodology/confidence/horizon selectors, data source toggle, portfolio switcher, and Save/SaveAs/Duplicate buttons are always accessible.
+- **Only active tab panels render** — switching tabs unmounts the previous tab's panels and mounts the new tab's panels. This dramatically reduces memory usage and page height.
+- **Sticky tab bar** — the tab navigation bar is sticky below the header, always visible.
+- **Tab icons** — each tab has an icon (LayoutDashboard, BarChart3, ShieldAlert, Microscope, SlidersHorizontal, FileText) for quick visual identification.
+- **Mobile responsive** — tab labels show full text on desktop, first word only on mobile.
+- **Removed clutter** — removed 15+ header badges (5 methodologies, FRTB-aligned, Basel backtest, L-VaR, Reverse stress, Greeks, NMRF, Concentration, Sharpe, What-If, Optimizer, Regimes, Sensitivities, GARCH, Save/Load, Breach feed). Replaced with just LIVE/SYNTHETIC badge + active portfolio name badge.
+
+### Error boundary for tab switching
+- src/components/var/tab-error-boundary.tsx — New component:
+  • Catches ChunkLoadError (common in dev mode when switching tabs triggers simultaneous chunk compilation)
+  • Shows a "Loading panels..." message with a Retry button instead of crashing the whole page
+  • Logs the error to console for debugging
+  • Wraps all tab content in the dashboard
+
+### Performance improvement
+- **Before**: 25+ panels all rendered simultaneously → body height 12,000+ px → dev server OOM
+- **After**: Only 2-8 panels render per tab → body height 1,700-4,800 px → dev server stable
+- **Page load**: Overview tab loads in ~12s (9 charts), other tabs load in ~10s when switched to
+- **Memory**: Only the active tab's dynamic import chunks compile, preventing OOM
+
+## Verification results
+- ESLint: 0 errors, 0 warnings.
+- Overview tab: 9 charts, bodyH=1776px, loads in 12s ✓
+- Risk Measurement tab: 16 charts, bodyH=4828px, loads in 10s ✓
+- VLM review: 9/10 clean design rating
+  • Clean tab bar with 6 tabs ✓
+  • Overview tab active ✓
+  • KPI cards with sparklines visible ✓
+  • Layout clean and uncluttered ✓
+  • Control bar with portfolio switcher ✓
+- Error boundary catches ChunkLoadError gracefully with retry button ✓
+- Mobile responsive (tab labels truncate on small screens) ✓
+
+## Key benefits
+1. **Less bulky** — users see only 2-8 panels per tab instead of 25+ at once
+2. **Faster load** — only the active tab's panels compile and render
+3. **Better navigation** — tab bar provides instant switching between analysis views
+4. **Cleaner header** — removed 15+ badges, replaced with just LIVE/SYNTHETIC + portfolio name
+5. **Error resilient** — ChunkLoadError in dev mode shows retry button instead of crashing
+6. **Same functionality** — all 25+ panels still available, just organized into tabs

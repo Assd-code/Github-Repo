@@ -10,11 +10,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertCircle, BookOpen, Layers3 } from "lucide-react";
+import { Activity, AlertCircle, BookOpen, LayoutDashboard, BarChart3, ShieldAlert, Microscope, SlidersHorizontal, FileText } from "lucide-react";
 
-// Dynamic imports: panels are compiled on-demand by Turbopack, preventing the
-// initial page load from OOM-killing the dev server with 8GB cgroup limit.
-// ssr: false because these are all client components with browser-only APIs.
+// Dynamic imports: panels are compiled on-demand by Turbopack.
 const MethodologyComparison = dynamic(() => import("./methodology-comparison").then(m => m.MethodologyComparison), { ssr: false, loading: () => <PanelSkeleton /> });
 const PnlDistribution = dynamic(() => import("./pnl-distribution").then(m => m.PnlDistribution), { ssr: false, loading: () => <PanelSkeleton /> });
 const BacktestPanel = dynamic(() => import("./backtest-panel").then(m => m.BacktestPanel), { ssr: false, loading: () => <PanelSkeleton /> });
@@ -49,18 +47,21 @@ function PanelSkeleton() {
   return <Skeleton className="h-[400px] rounded-xl" />;
 }
 
+// Error boundary for tab content — catches ChunkLoadError (common in dev mode
+// when switching tabs triggers simultaneous compilation) and shows a retry
+// button instead of crashing the whole page.
+import { TabErrorBoundary } from "./tab-error-boundary";
+
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
   show: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.4, delay: Math.min(i * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+    transition: { duration: 0.4, delay: Math.min(i * 0.05, 0.3), ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
   }),
 };
 
 function Section({ children, i }: { children: React.ReactNode; i: number }) {
-  // Only animate after mount to avoid SSR/CSR hydration mismatch from
-  // framer-motion setting inline styles (opacity:0) on the server.
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   if (!mounted) return <div>{children}</div>;
@@ -71,74 +72,29 @@ function Section({ children, i }: { children: React.ReactNode; i: number }) {
   );
 }
 
-// Lazy-mount wrapper: only renders children when they scroll into view.
-// Includes a staggered delay based on the section index so panels compile
-// one-at-a-time, preventing OOM-kills from simultaneous Turbopack compilation.
-function LazySection({ children, i, minHeight = 200 }: { children: React.ReactNode; i: number; minHeight?: number }) {
-  const ref = React.useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = React.useState(false);
+// Tab definitions
+type TabId = "overview" | "risk" | "stress" | "advanced" | "tools" | "reports";
 
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            // Stagger the mount by index to avoid simultaneous compilation
-            const delay = Math.min(i * 100, 800);
-            setTimeout(() => setVisible(true), delay);
-            observer.disconnect();
-            break;
-          }
-        }
-      },
-      { rootMargin: "50px 0px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [i]);
-
-  if (!visible) {
-    return (
-      <div ref={ref} style={{ minHeight }} className="flex items-center justify-center">
-        <div className="text-xs text-muted-foreground/50 animate-pulse">Loading…</div>
-      </div>
-    );
-  }
-  return <Section i={i}>{children}</Section>;
-}
-
-// A subtle horizontal divider that groups panels into thematic sections.
-function SectionDivider({ label, hint }: { label: string; hint?: string }) {
-  return (
-    <div className="flex items-center gap-3 pt-4 pb-1">
-      <div className="h-px w-12 bg-gradient-to-r from-transparent to-border" />
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/80">
-          {label}
-        </span>
-        {hint && (
-          <span className="hidden sm:inline text-[10px] text-muted-foreground">
-            · {hint}
-          </span>
-        )}
-      </div>
-      <div className="h-px flex-1 bg-gradient-to-r from-border via-border/40 to-transparent" />
-    </div>
-  );
-}
+const TABS: { id: TabId; label: string; icon: React.ElementType; hint: string }[] = [
+  { id: "overview", label: "Overview", icon: LayoutDashboard, hint: "KPIs · methodology · P&L · portfolio" },
+  { id: "risk", label: "Risk Measurement", icon: BarChart3, hint: "VaR trend · backtest · decomposition · stress" },
+  { id: "stress", label: "Stress & Limits", icon: ShieldAlert, hint: "Reverse stress · PLA · limits · breaches · scenarios" },
+  { id: "advanced", label: "Advanced Analytics", icon: Microscope, hint: "Greeks · GARCH · concentration · sensitivity · regimes" },
+  { id: "tools", label: "Interactive Tools", icon: SlidersHorizontal, hint: "What-if · optimizer · portfolio manager" },
+  { id: "reports", label: "Reports & Data", icon: FileText, hint: "Custom PDF report · market data · methodology reference" },
+];
 
 export function VarDashboard() {
   const { report, market, loading, error, controls, setControls, lastUpdated, useRealData, setUseRealData, dataSource, activePortfolioName, setActivePortfolioName, isDirty, markClean } = useVarData();
   const [, force] = React.useReducer((x) => x + 1, 0);
   const refresh = () => force();
+  const [activeTab, setActiveTab] = React.useState<TabId>("overview");
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
       <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur-md">
-        <div className="mx-auto max-w-[1400px] px-4 md:px-6 py-3 flex items-center gap-3">
+        <div className="mx-auto max-w-[1400px] px-4 md:px-6 py-2.5 flex items-center gap-3">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-amber-500 text-white shadow-sm">
               <Activity className="h-5 w-5" />
@@ -148,33 +104,23 @@ export function VarDashboard() {
               <p className="text-[11px] text-muted-foreground leading-tight">Value-at-Risk Risk Model</p>
             </div>
           </div>
+          {/* Compact status badges */}
           <div className="hidden md:flex items-center gap-1.5 ml-3">
             {useRealData ? (
               <Badge variant="secondary" className="text-[10px] h-5 bg-emerald-500/15 text-emerald-500 border-emerald-500/30">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse mr-1" />
-                LIVE DATA
+                LIVE
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-[10px] h-5 bg-muted/30 text-muted-foreground border-muted-foreground/30">
                 SYNTHETIC
               </Badge>
             )}
-            <Badge variant="secondary" className="text-[10px] h-5">5 methodologies</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5">FRTB-aligned</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5">Basel backtest</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">L-VaR</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Reverse stress</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-4/15 text-chart-4 border-chart-4/30">Greeks</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">NMRF</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-4/15 text-chart-4 border-chart-4/30">Concentration</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Sharpe</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-5/15 text-chart-5 border-chart-5/30">What-If</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-2/15 text-chart-2 border-chart-2/30">Optimizer</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">Regimes</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-1/15 text-chart-1 border-chart-1/30">Sensitivities</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-3/15 text-chart-3 border-chart-3/30">GARCH</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-chart-5/15 text-chart-5 border-chart-5/30">Save/Load</Badge>
-            <Badge variant="secondary" className="text-[10px] h-5 bg-rose-500/15 text-rose-500 border-rose-500/30">Breach feed</Badge>
+            {activePortfolioName && (
+              <Badge variant="secondary" className="text-[10px] h-5 bg-chart-5/15 text-chart-5 border-chart-5/30">
+                {activePortfolioName}
+              </Badge>
+            )}
           </div>
           <div className="ml-auto flex items-center gap-2">
             {lastUpdated && (
@@ -191,13 +137,38 @@ export function VarDashboard() {
             <ThemeToggle />
           </div>
         </div>
+
+        {/* Tab navigation bar */}
+        <div className="border-t bg-background/95 backdrop-blur-md">
+          <div className="mx-auto max-w-[1400px] px-4 md:px-6">
+            <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-thin -mb-px">
+              {TABS.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
+                      isActive
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                    }`}
+                    title={tab.hint}
+                  >
+                    <tab.icon className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.label.split(" ")[0]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </header>
 
-      <main className="flex-1 mx-auto max-w-[1400px] w-full px-4 md:px-6 py-5 space-y-4">
-        {/* Control bar */}
-        <div
-          className="rounded-xl border bg-card p-3 md:p-4 shadow-sm"
-        >
+      <main className="flex-1 mx-auto max-w-[1400px] w-full px-4 md:px-6 py-4 space-y-3">
+        {/* Control bar — always visible */}
+        <div className="rounded-xl border bg-card p-3 md:p-4 shadow-sm">
           <ControlBar controls={controls} setControls={setControls} onRefresh={refresh} loading={loading} useRealData={useRealData} setUseRealData={setUseRealData} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} />
         </div>
 
@@ -241,128 +212,109 @@ export function VarDashboard() {
           <LoadingState />
         ) : report ? (
           <>
-            {/* KPI cards */}
+            {/* KPI cards — always visible across all tabs */}
             <Section i={0}>
               <KpiCards report={report} method={controls.method} />
             </Section>
 
-            <SectionDivider label="Risk Measurement" hint="5 methodologies · ES · P&L distribution" />
+            {/* Tab content — only render the active tab's panels */}
+            <TabErrorBoundary tabId={activeTab}>
+            {activeTab === "overview" && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <Section i={1}><MethodologyComparison report={report} activeMethod={controls.method} /></Section>
+                  <Section i={2}><PnlDistribution report={report} method={controls.method} /></Section>
+                </div>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <Section i={3}><PortfolioPanel report={report} /></Section>
+                  <Section i={4}><MarketPanel market={market} /></Section>
+                </div>
+              </div>
+            )}
 
-            {/* Methodology comparison + P&L distribution */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={1}><MethodologyComparison report={report} activeMethod={controls.method} /></LazySection>
-              <LazySection i={2}><PnlDistribution report={report} method={controls.method} /></LazySection>
-            </div>
+            {activeTab === "risk" && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <Section i={1}><VarTrendPanel report={report} method={controls.method} /></Section>
+                  <Section i={2}><LiquidityPanel report={report} /></Section>
+                </div>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <Section i={3}><BacktestPanel report={report} method={controls.method} /></Section>
+                  <Section i={4}><McPathsPanel report={report} method={controls.method} /></Section>
+                </div>
+                <Section i={5}><ExceptionDeepDivePanel controls={controls} /></Section>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <Section i={6}><DecompositionPanel report={report} /></Section>
+                  <Section i={7}><StressPanel report={report} /></Section>
+                </div>
+                <Section i={8}><SensitivityPanel controls={controls} /></Section>
+              </div>
+            )}
 
-            {/* VaR Trend + Liquidity (FRTB) */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={3}><VarTrendPanel report={report} method={controls.method} /></LazySection>
-              <LazySection i={4}><LiquidityPanel report={report} /></LazySection>
-            </div>
+            {activeTab === "stress" && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <Section i={1}><ReverseStressPanel report={report} controls={controls} /></Section>
+                  <Section i={2}><PnlAttributionPanel report={report} /></Section>
+                </div>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <Section i={3}><LimitMonitoringPanel controls={controls} /></Section>
+                  <Section i={4}><ScenarioBuilderPanel controls={controls} /></Section>
+                </div>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <Section i={5}><BreachFeedPanel /></Section>
+                  <Section i={6}><UtilizationHeatmapPanel /></Section>
+                </div>
+              </div>
+            )}
 
-            {/* Backtest + MC paths */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={5}><BacktestPanel report={report} method={controls.method} /></LazySection>
-              <LazySection i={6}><McPathsPanel report={report} method={controls.method} /></LazySection>
-            </div>
+            {activeTab === "advanced" && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <Section i={1}><DerivativesPanel /></Section>
+                  <Section i={2}><HistoricalComparisonPanel /></Section>
+                </div>
+                <Section i={3}><ModellabilityPanel /></Section>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <Section i={4}><ConcentrationPanel controls={controls} /></Section>
+                  <Section i={5}><PerformancePanel controls={controls} /></Section>
+                </div>
+                <Section i={6}><CorrelationRegimePanel controls={controls} /></Section>
+                <Section i={7}><VolatilityRegimePanel controls={controls} /></Section>
+              </div>
+            )}
 
-            {/* Exception deep-dive (round 8) */}
-            <LazySection i={7}><ExceptionDeepDivePanel controls={controls} /></LazySection>
+            {activeTab === "tools" && (
+              <div className="space-y-3">
+                <Section i={1}><WhatIfSimulatorPanel controls={controls} report={report} /></Section>
+                <Section i={2}><OptimizerPanel controls={controls} /></Section>
+                <Section i={3}><SavedPortfoliosPanel controls={controls} setControls={setControls} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} /></Section>
+              </div>
+            )}
 
-            {/* Decomposition + Stress */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={8}><DecompositionPanel report={report} /></LazySection>
-              <LazySection i={9}><StressPanel report={report} /></LazySection>
-            </div>
-
-            {/* Risk Factor Sensitivity (round 9) */}
-            <LazySection i={10}><SensitivityPanel controls={controls} /></LazySection>
-
-            <SectionDivider label="Stress & Attribution" hint="Reverse stress · PLA · scenario builder" />
-
-            {/* Reverse stress + P&L attribution */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={11}><ReverseStressPanel report={report} controls={controls} /></LazySection>
-              <LazySection i={12}><PnlAttributionPanel report={report} /></LazySection>
-            </div>
-
-            {/* Limit monitoring + Scenario builder (round 3) */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={13}><LimitMonitoringPanel controls={controls} /></LazySection>
-              <LazySection i={14}><ScenarioBuilderPanel controls={controls} /></LazySection>
-            </div>
-
-            {/* Breach feed + Utilization heatmap (round 4) */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={15}><BreachFeedPanel /></LazySection>
-              <LazySection i={16}><UtilizationHeatmapPanel /></LazySection>
-            </div>
-
-            <SectionDivider label="Advanced Analytics" hint="Greeks · NMRF · concentration · performance · regimes · GARCH" />
-
-            {/* Derivatives/Greeks + Historical VaR comparison (round 5) */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={17}><DerivativesPanel /></LazySection>
-              <LazySection i={18}><HistoricalComparisonPanel /></LazySection>
-            </div>
-
-            {/* Modellability assessment (round 6) */}
-            <LazySection i={19}><ModellabilityPanel /></LazySection>
-
-            {/* Concentration + Performance (round 7) */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={20}><ConcentrationPanel controls={controls} /></LazySection>
-              <LazySection i={21}><PerformancePanel controls={controls} /></LazySection>
-            </div>
-
-            {/* Correlation Regime Analysis (round 8) */}
-            <LazySection i={22}><CorrelationRegimePanel controls={controls} /></LazySection>
-
-            {/* Volatility Regime & GARCH Forecast (round 9) */}
-            <LazySection i={23}><VolatilityRegimePanel controls={controls} /></LazySection>
-
-            <SectionDivider label="Interactive Simulator" hint="live what-if weight rebalancing · portfolio optimizer" />
-
-            {/* What-If Simulator (round 7) — full-width */}
-            <LazySection i={24}><WhatIfSimulatorPanel controls={controls} report={report} /></LazySection>
-
-            {/* Portfolio Optimizer (round 8) — full-width */}
-            <LazySection i={25}><OptimizerPanel controls={controls} /></LazySection>
-
-            <SectionDivider label="Market & Holdings" hint="reference data · saved portfolios · custom reports" />
-
-            {/* Custom Report Builder */}
-            <LazySection i={26}><CustomReportPanel controls={controls} useRealData={useRealData} activePortfolioName={activePortfolioName} /></LazySection>
-
-            {/* Saved Portfolios (round 9) */}
-            <LazySection i={27}><SavedPortfoliosPanel controls={controls} setControls={setControls} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} /></LazySection>
-
-            {/* Market + Portfolio */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={28}><MarketPanel market={market} /></LazySection>
-              <LazySection i={29}><PortfolioPanel report={report} /></LazySection>
-            </div>
-
-            {/* Methodology reference */}
-            <LazySection i={30}>
-              <MethodologyReference />
-            </LazySection>
+            {activeTab === "reports" && (
+              <div className="space-y-3">
+                <Section i={1}><CustomReportPanel controls={controls} useRealData={useRealData} activePortfolioName={activePortfolioName} /></Section>
+                <Section i={2}>
+                  <MethodologyReference />
+                </Section>
+              </div>
+            )}
+            </TabErrorBoundary>
           </>
         ) : null}
       </main>
 
       {/* Footer */}
       <footer className="border-t bg-muted/30 mt-auto">
-        <div className="mx-auto max-w-[1400px] px-4 md:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <div className="mx-auto max-w-[1400px] px-4 md:px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-2">
             <span className="font-medium text-foreground">VaR Lab</span>
             <span>·</span>
             <span>Educational risk-model implementation — not investment advice.</span>
           </div>
-          <div className="flex items-center gap-3 flex-wrap justify-center">
-            <span>Parametric · Historical · Monte Carlo · Filtered HS · EVT</span>
-            <span>·</span>
-            <span>L-VaR · PLA · Reverse stress · Greeks · NMRF · Concentration · Sharpe · What-If · Optimizer · Regimes · GARCH · Sensitivities · Exception deep-dive · Limit monitoring · Scenario builder · Breach feed · Heatmap · Historical comparison · Save/Load · Kupiec · Christoffersen · Basel III</span>
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <span>5 VaR methods · FRTB · Basel III · 10+ analysis panels</span>
           </div>
         </div>
       </footer>
@@ -372,23 +324,15 @@ export function VarDashboard() {
 
 function LoadingState() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-[88px] rounded-lg" />
         ))}
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
         <Skeleton className="h-[420px] rounded-xl" />
         <Skeleton className="h-[420px] rounded-xl" />
-      </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Skeleton className="h-[460px] rounded-xl" />
-        <Skeleton className="h-[460px] rounded-xl" />
-      </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Skeleton className="h-[460px] rounded-xl" />
-        <Skeleton className="h-[460px] rounded-xl" />
       </div>
     </div>
   );
@@ -405,7 +349,7 @@ function MethodologyReference() {
   return (
     <div className="rounded-xl border bg-card p-4">
       <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
-        <Layers3 className="h-4 w-4 text-muted-foreground" />
+        <BookOpen className="h-4 w-4 text-muted-foreground" />
         Methodology Reference
       </h3>
       <p className="text-[11px] text-muted-foreground mb-3">
