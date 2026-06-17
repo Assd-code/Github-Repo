@@ -43,6 +43,7 @@ const ExceptionDeepDivePanel = dynamic(() => import("./exception-deepdive-panel"
 const SensitivityPanel = dynamic(() => import("./sensitivity-panel").then(m => m.SensitivityPanel), { ssr: false, loading: () => <PanelSkeleton /> });
 const VolatilityRegimePanel = dynamic(() => import("./volatility-regime-panel").then(m => m.VolatilityRegimePanel), { ssr: false, loading: () => <PanelSkeleton /> });
 const SavedPortfoliosPanel = dynamic(() => import("./saved-portfolios-panel").then(m => m.SavedPortfoliosPanel), { ssr: false, loading: () => <PanelSkeleton /> });
+const CustomReportPanel = dynamic(() => import("./custom-report-panel").then(m => m.CustomReportPanel), { ssr: false, loading: () => <PanelSkeleton /> });
 
 function PanelSkeleton() {
   return <Skeleton className="h-[400px] rounded-xl" />;
@@ -328,19 +329,22 @@ export function VarDashboard() {
             {/* Portfolio Optimizer (round 8) — full-width */}
             <LazySection i={25}><OptimizerPanel controls={controls} /></LazySection>
 
-            <SectionDivider label="Market & Holdings" hint="reference data · saved portfolios" />
+            <SectionDivider label="Market & Holdings" hint="reference data · saved portfolios · custom reports" />
+
+            {/* Custom Report Builder */}
+            <LazySection i={26}><CustomReportPanel controls={controls} useRealData={useRealData} activePortfolioName={activePortfolioName} /></LazySection>
 
             {/* Saved Portfolios (round 9) */}
-            <LazySection i={26}><SavedPortfoliosPanel controls={controls} setControls={setControls} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} /></LazySection>
+            <LazySection i={27}><SavedPortfoliosPanel controls={controls} setControls={setControls} activePortfolioName={activePortfolioName} setActivePortfolioName={setActivePortfolioName} isDirty={isDirty} markClean={markClean} /></LazySection>
 
             {/* Market + Portfolio */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <LazySection i={27}><MarketPanel market={market} /></LazySection>
-              <LazySection i={28}><PortfolioPanel report={report} /></LazySection>
+              <LazySection i={28}><MarketPanel market={market} /></LazySection>
+              <LazySection i={29}><PortfolioPanel report={report} /></LazySection>
             </div>
 
             {/* Methodology reference */}
-            <LazySection i={29}>
+            <LazySection i={30}>
               <MethodologyReference />
             </LazySection>
           </>

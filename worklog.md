@@ -1256,3 +1256,128 @@ Task: Add full multi-portfolio management — switcher dropdown, save/update, sa
 7. Click the Duplicate (copy-plus) icon to create a copy.
 8. Click "New" in the dropdown to create a blank portfolio.
 9. The "● unsaved" indicator tells you when changes need saving.
+
+---
+Task ID: 21 (custom report builder + PDF export + AI interpretation)
+Agent: main
+Task: Add custom report builder with selectable sections/methods/charts, LLM-powered portfolio interpretation (pros/cons/recommendations), brief summary option, and graphical PDF export.
+
+## Current project status (assessment)
+- The dashboard had 25+ analysis panels but no way to export a consolidated report.
+- User requested: "output graphs and interpretations of their portfolio, choosing the corresponding method or data or analysis to plot, telling pros and cons, brief summary at the end, good graphics"
+
+## Completed modifications
+
+### New backend modules
+- src/app/api/var/custom-report/route.ts — POST endpoint that:
+  • Accepts a config object: sections[], methods[], includeSummary, includeInterpretation
+  • Fetches real or synthetic market data
+  • Builds the full VaR report (buildFullReport)
+  • Computes additional analytics (sensitivity, volatility, optimizer, concentration, performance) based on selected sections
+  • Calls the LLM (z-ai-web-dev-sdk) to generate portfolio interpretation (pros, cons, recommendations, summary)
+  • Falls back to rule-based interpretation if LLM fails
+  • Returns all data as JSON
+
+- src/app/api/var/export-pdf/route.ts — POST endpoint that:
+  • Generates a graphical HTML report (dark financial-terminal theme)
+  • Includes: cover section, KPI cards, portfolio holdings table, selected sections with SVG charts, AI interpretation, executive summary
+  • Converts HTML to PDF using Playwright (via the pdf skill's html2poster.js)
+  • Saves both HTML and PDF to /public/reports/
+  • Returns URLs for download
+
+### AI Interpretation (z-ai-web-dev-sdk)
+- generateInterpretation() function:
+  • Sends a structured prompt to the LLM with portfolio data (positions, VaR results, backtest, stress tests, FRTB capital, PLA)
+  • Asks for JSON response with: pros[], cons[], recommendations[], summary
+  • Parses the JSON response
+  • Falls back to generateRuleBasedInterpretation() if LLM fails or returns invalid JSON
+- Rule-based fallback:
+  • Checks backtest zone, PLA zone, diversification ratio, TLT hedge, stress breaches, concentration, method spread, regulatory capital
+  • Generates specific pros/cons/recommendations referencing actual numbers
+
+### New frontend panel
+- src/components/var/custom-report-panel.tsx — Custom Report Builder:
+  • 3-step configuration UI:
+    1. Section selector: 10 checkboxes (VaR, Backtest, Stress, Decomposition, Liquidity, Sensitivity, Volatility, Optimizer, Concentration, Performance) with descriptions
+    2. Method selector: 5 toggle buttons (Parametric, Historical, Monte Carlo, Filtered HS, EVT) with color coding
+    3. Report options: AI Interpretation checkbox, Brief Executive Summary checkbox
+  • Generate button with loading state
+  • Result view with:
+    - Success banner
+    - AI interpretation preview (executive summary + pros/cons grid)
+    - Download PDF + View HTML buttons
+    - Back to configuration button
+  • Error handling with failure message
+
+### PDF report design
+- Dark financial-terminal theme (#020617 background, #0f172a cards)
+- Cover section with portfolio name, data source badge, metadata
+- 4 KPI cards (VaR, ES, Regulatory Capital, Worst Stress) with color-coded values
+- Portfolio holdings table (symbol, name, weight, market value)
+- Selected sections rendered as SVG charts:
+  - VaR comparison: bar chart with method-colored bars
+  - Stress tests: horizontal bars (red for breach, green for pass)
+  - Decomposition: data table
+  - Backtest: 4 metric cards with zone color
+  - Liquidity: 2 metric cards
+- AI interpretation section with pros (green) / cons (red) / recommendations (blue)
+- Executive summary section
+- Footer with generation timestamp and data source
+- Single-page PDF (794px width, dynamic height via html2poster.js)
+
+### Dashboard wiring
+- src/components/var/var-dashboard.tsx — Added CustomReportPanel as a dynamic import with lazy loading. Placed at the top of the "Market & Holdings" section (before Saved Portfolios).
+
+## Verification results
+- ESLint: 0 errors, 0 warnings.
+- API test (export-pdf):
+  • POST with 2 sections (var, stress), 1 method (historical), 2 positions (SPY, TLT)
+  • Response: ok=true, pdfUrl=/reports/var-report-*.pdf, htmlUrl=/reports/var-report-*.html
+  • PDF file: 75KB, 1 page, valid PDF 1.4
+  • AI interpretation: 4 pros, 4 cons, 4 recommendations, summary
+  • LLM correctly identified TLT concentration (86.7%), interest rate risk, Rate Shock breach
+  • Recommendations were specific and actionable
+- UI test (agent-browser + VLM):
+  • Custom Report Builder panel found after scrolling ✓
+  • Section checkboxes (10 options, 4 selected by default) ✓
+  • Method toggle buttons (5 options, 3 selected by default) ✓
+  • AI Interpretation + Executive Summary options checked ✓
+  • Generate button clicked → success in 6 seconds ✓
+  • Success banner "Report Generated Successfully!" ✓
+  • AI interpretation preview with executive summary + pros/cons ✓
+  • Download PDF + View HTML buttons ✓
+- PDF VLM review: 9/10 rating
+  • Cover section with portfolio name ✓
+  • KPI cards (VaR, ES, Capital, Stress) ✓
+  • Bar charts (VaR comparison, stress tests) ✓
+  • AI interpretation section (strengths/risk concerns) ✓
+  • Executive summary ✓
+  • Professional dark theme, clear visualization ✓
+
+## Key features delivered
+1. **Configurable report builder** — users choose which of 10 analysis sections to include, which of 5 VaR methods to compare, and whether to add AI interpretation and/or executive summary.
+2. **AI-powered interpretation** — LLM analyzes the portfolio and generates:
+   - Pros: 3-4 strengths (diversification, hedging, calibration, etc.)
+   - Cons: 3-4 weaknesses (concentration, tail risk, stress breaches, etc.)
+   - Recommendations: 3-4 actionable suggestions
+   - Summary: 2-3 sentence executive summary
+   All referencing actual numbers from the report.
+3. **Graphical PDF export** — professional dark-theme PDF with:
+   - SVG charts (VaR bar chart, stress test bars)
+   - KPI cards with color-coded values
+   - Data tables for holdings and decomposition
+   - AI interpretation with color-coded pros/cons
+   - Executive summary
+4. **Brief summary option** — optional 2-3 sentence executive summary at the end of the report.
+5. **Live data integration** — reports use real Yahoo Finance data when real-data mode is active.
+
+## How to use
+1. Scroll to the "Custom Report Builder" panel (near the bottom of the dashboard)
+2. Select which analysis sections to include (checkboxes)
+3. Select which VaR methods to compare (toggle buttons)
+4. Check "AI Interpretation" for pros/cons/recommendations
+5. Check "Brief Executive Summary" for a summary at the end
+6. Click "Generate Graphical PDF Report"
+7. Wait ~6-10 seconds (LLM + PDF rendering)
+8. Preview the AI interpretation
+9. Click "Download PDF" or "View HTML"
