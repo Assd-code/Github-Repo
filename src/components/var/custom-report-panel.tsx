@@ -106,9 +106,21 @@ export function CustomReportPanel({
           horizon: controls.horizon,
         }),
       });
-      const j = await res.json();
-      setResult(j);
-      if (j.ok) setView("result");
+
+      const html = await res.text();
+
+      // Download as an HTML file that the user opens in their browser
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `VaR-Report-${new Date().toISOString().slice(0, 10)}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+      setResult({ ok: true });
     } catch (e) {
       setResult({ ok: false, error: e instanceof Error ? e.message : "Network error" });
     } finally {
@@ -305,20 +317,15 @@ export function CustomReportPanel({
                 </div>
               )}
 
-              {/* Download buttons */}
-              <div className="flex items-center gap-2">
-                <Button asChild className="flex-1 h-10">
-                  <a href={result.pdfUrl} target="_blank" rel="noreferrer">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
-                  </a>
-                </Button>
-                <Button asChild variant="outline" className="flex-1 h-10">
-                  <a href={result.htmlUrl} target="_blank" rel="noreferrer">
-                    <FileText className="h-4 w-4 mr-2" />
-                    View HTML
-                  </a>
-                </Button>
+              {/* Success — report downloaded */}
+              <div className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+                <Check className="h-6 w-6 text-emerald-500 shrink-0" />
+                <div>
+                  <div className="text-sm font-semibold text-emerald-500">Report downloaded!</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">
+                    Open the downloaded HTML file in your browser, then click the "📄 Print / Save as PDF" button to save it as a PDF.
+                  </div>
+                </div>
               </div>
 
               <Button variant="ghost" size="sm" className="w-full" onClick={() => setView("config")}>
