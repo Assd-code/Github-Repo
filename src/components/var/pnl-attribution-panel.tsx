@@ -45,7 +45,7 @@ export function PnlAttributionPanel({ report }: { report: FullReport }) {
               P&amp;L Attribution (FRTB PLA)
             </CardTitle>
             <CardDescription>
-              Risk-theoretical vs. hypothetical P&amp;L over {pla.window} days — the desk&apos;s licence to use Internal Models
+              Risk-theoretical vs. hypothetical P&amp;L over {pla.window} days — the desk&apos;s license to use Internal Models
             </CardDescription>
           </div>
           <Badge variant="outline" className={`${z.bg} ${z.text} ${z.border}`}>
