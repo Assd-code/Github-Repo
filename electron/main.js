@@ -7,12 +7,17 @@ let nextServer = null;
 
 function startNextServer() {
   return new Promise((resolve) => {
+    const isDev = !app.isPackaged;
     const cwd = app.isPackaged
       ? path.join(process.resourcesPath, "app")
-      : __dirname;
+      : path.join(__dirname, "..");
 
     const cmd = process.platform === "win32" ? "npx.cmd" : "npx";
-    nextServer = spawn(cmd, ["next", "start", "-p", "3000"], {
+    const args = isDev
+      ? ["next", "dev", "-p", "3000"]
+      : ["next", "start", "-p", "3000"];
+
+    nextServer = spawn(cmd, args, {
       cwd,
       stdio: "pipe",
       env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=4096" },
@@ -21,7 +26,7 @@ function startNextServer() {
     nextServer.stdout.on("data", (data) => {
       const msg = data.toString();
       console.log("[next]", msg.trim());
-      if (msg.includes("Ready") || msg.includes("started")) {
+      if (msg.includes("Ready") || msg.includes("started") || msg.includes("Local:")) {
         resolve();
       }
     });
