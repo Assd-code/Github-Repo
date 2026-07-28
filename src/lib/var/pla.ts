@@ -35,7 +35,7 @@ export function computePnlAttribution(
   const GAMMA_PROXY = 0.02;
 
   const startIdx = Math.max(1, returns.length - window);
-  const rawPoints = [];
+  const rawPoints: PnlAttribution["points"] = [];
 
   for (let t = startIdx; t < returns.length; t++) {
     // RTPL: linear risk-factor P&L = sum(w_i * r_i) * V

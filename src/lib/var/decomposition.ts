@@ -41,7 +41,7 @@ export function decompose(
 
   // Marginal VaR_i = d(VaR)/d(w_i) = V * (z * (Sigma w)_i / sigma_p * sqrt(T) - mu_i*T)
   // (positive for risky assets, negative for diversifiers/hedges).
-  const perAsset = [];
+  const perAsset: DecompositionResult["perAsset"] = [];
   for (let i = 0; i < n; i++) {
     const position = portfolio.positions.find((p) => p.symbol === market.assets[i].symbol);
     if (!position || marketValues[i] === 0) continue;

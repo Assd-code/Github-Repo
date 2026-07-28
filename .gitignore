@@ -12,17 +12,25 @@ node_modules
 
 # testing
 /coverage
+__pycache__/
+*.py[cod]
+.venv*/
+/python/build/
+/python/dist/
+/python/spec/
 
 # next.js
 /.next/
 /out/
 
-# production
-/build
+# production packages (source signing scripts live in /build and are committed)
+/release/
 
 # misc
 .DS_Store
 *.pem
+*.db-shm
+*.db-wal
 
 # debug
 npm-debug.log*

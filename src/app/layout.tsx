@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     "Enterprise Value-at-Risk engine: parametric, historical, Monte Carlo, filtered HS & EVT methodologies with backtesting, decomposition and stress testing.",
   keywords: ["VaR", "Value at Risk", "risk management", "Monte Carlo", "backtesting", "FRTB"],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/icon.png",
   },
 };
 

@@ -42,7 +42,16 @@ export function LimitMonitoringPanel({ controls }: { controls: VarControls }) {
 
   const load = () => {
     setLoading(true);
-    fetch(`/api/var/limits?seed=${controls.seed}&totalValue=${controls.totalValue}&positions=${encodeURIComponent(positionsStr)}`)
+    fetch("/api/var/limits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "monitor",
+        seed: controls.seed,
+        totalValue: controls.totalValue,
+        positions: controls.positions,
+      }),
+    })
       .then((r) => r.json())
       .then((d) => { if (d.ok) setData(d.monitoring); })
       .finally(() => setLoading(false));

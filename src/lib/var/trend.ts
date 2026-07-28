@@ -22,7 +22,7 @@ export function computeVarTrend(
   const n = market.assets.length;
 
   const startIdx = Math.max(window, totalDays - testDays);
-  const rawPoints = [];
+  const rawPoints: VarTrend["points"] = [];
 
   for (let t = startIdx; t < totalDays; t++) {
     // Trailing window sub-market for VaR estimation.

@@ -1,16 +1,38 @@
 // Report Export — returns a self-contained HTML report directly.
 // No file saving, no Playwright, no external dependencies.
-// The browser opens the HTML in a new tab with a "Print to PDF" button.
+// The downloaded report contains no executable JavaScript.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getMarketData } from "@/lib/var/cache";
 import { DEFAULT_PORTFOLIO } from "@/lib/var/engine";
 import { PortfolioConfig, Methodology, FullReport } from "@/lib/var/types";
 import { buildFullReport } from "@/lib/var/engine";
+import {
+  ApiValidationError,
+  apiErrorResponse,
+  validateMethodology,
+  validateNumber,
+  validatePortfolio,
+  validateText,
+} from "@/lib/var/api-validation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const fetchCache = "force-no-store";
+
+const ALLOWED_SECTIONS = new Set([
+  "var", "backtest", "stress", "decomposition", "liquidity",
+  "sensitivity", "volatility", "optimizer", "concentration", "performance",
+]);
+
+function escapeHtml(value: unknown): string {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
 function fmtUSD(v: number): string {
   if (!Number.isFinite(v)) return "—";
@@ -60,21 +82,35 @@ function generateInterpretation(report: FullReport, portfolioName: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json() as Record<string, unknown>;
+    const rawSections = body.sections ?? ["var", "backtest", "stress"];
+    const rawMethods = body.methods ?? ["historical", "parametric"];
+    if (!Array.isArray(rawSections) || rawSections.length === 0 || rawSections.length > ALLOWED_SECTIONS.size) {
+      throw new ApiValidationError("sections is invalid");
+    }
+    if (!Array.isArray(rawMethods) || rawMethods.length === 0 || rawMethods.length > 5) {
+      throw new ApiValidationError("methods is invalid");
+    }
+    const sections = rawSections.map((section) => validateText(section, "section", { required: true, max: 30 }));
+    if (sections.some((section) => !ALLOWED_SECTIONS.has(section))) {
+      throw new ApiValidationError("sections contains an unsupported value");
+    }
+    const methods = rawMethods.map((method) => validateMethodology(method));
     const config = {
-      sections: body.sections || ["var", "backtest", "stress"],
-      methods: body.methods || ["historical", "parametric"],
-      includeSummary: body.includeSummary ?? true,
-      includeInterpretation: body.includeInterpretation ?? true,
-      confidence: body.confidence ?? 0.99,
-      horizon: body.horizon ?? 1,
+      includeSummary: body.includeSummary !== false,
+      includeInterpretation: body.includeInterpretation !== false,
+      confidence: validateNumber(body.confidence ?? 0.99, "confidence", { min: 0.9, max: 0.999 }),
+      horizon: validateNumber(body.horizon ?? 1, "horizon", { min: 1, max: 250, integer: true }),
     };
-    const portfolio: PortfolioConfig = {
-      positions: body.positions || DEFAULT_PORTFOLIO.positions,
-      totalValue: body.totalValue || DEFAULT_PORTFOLIO.totalValue,
-    };
-    const useRealData = body.useRealData ?? false;
-    const portfolioName = body.portfolioName || "My Portfolio";
+    const portfolio: PortfolioConfig = validatePortfolio({
+      positions: body.positions,
+      totalValue: body.totalValue,
+    }, DEFAULT_PORTFOLIO);
+    const portfolioName = validateText(body.portfolioName ?? "My Portfolio", "portfolioName", {
+      required: true,
+      max: 120,
+    });
+    const safePortfolioName = escapeHtml(portfolioName);
 
     const market = getMarketData(504, 42);
     const report = buildFullReport(market, portfolio, config.confidence, config.horizon, "historical");
@@ -82,8 +118,6 @@ export async function POST(req: NextRequest) {
       ? generateInterpretation(report, portfolioName)
       : null;
 
-    const methods = config.methods as Methodology[];
-    const sections = config.sections as string[];
     const worstStress = report.stress.reduce((acc, s) => (s.pnl < acc.pnl ? s : acc), report.stress[0]);
 
     // Build SVG charts
@@ -104,11 +138,11 @@ export async function POST(req: NextRequest) {
       const bw = (Math.abs(s.pnl) / maxStress) * 280;
       const y = 20 + i * 28;
       const color = s.breachesVar ? "#f43f5e" : "#22c55e";
-      return `<text x="115" y="${y + 14}" text-anchor="end" fill="#cbd5e1" font-size="10">${s.scenario.name.slice(0, 22)}</text><rect x="120" y="${y}" width="${bw}" height="18" fill="${color}" opacity="0.7" rx="3"/><text x="${120 + bw + 6}" y="${y + 13}" fill="#e2e8f0" font-size="10" font-weight="bold">${s.pnl < 0 ? "-" : "+"}${fmtUSD(Math.abs(s.pnl))}</text>`;
+      return `<text x="115" y="${y + 14}" text-anchor="end" fill="#cbd5e1" font-size="10">${escapeHtml(s.scenario.name.slice(0, 22))}</text><rect x="120" y="${y}" width="${bw}" height="18" fill="${color}" opacity="0.7" rx="3"/><text x="${120 + bw + 6}" y="${y + 13}" fill="#e2e8f0" font-size="10" font-weight="bold">${s.pnl < 0 ? "-" : "+"}${fmtUSD(Math.abs(s.pnl))}</text>`;
     }).join("");
 
     const posRows = report.portfolio.positions.sort((a, b) => b.marketValue - a.marketValue).map((p) =>
-      `<tr><td style="padding:5px 10px;border-bottom:1px solid #1e293b;font-weight:bold;color:#e2e8f0;">${p.symbol}</td><td style="padding:5px 10px;border-bottom:1px solid #1e293b;color:#94a3b8;">${p.name}</td><td style="padding:5px 10px;border-bottom:1px solid #1e293b;text-align:right;">${fmtPct(p.weight, 1)}</td><td style="padding:5px 10px;border-bottom:1px solid #1e293b;text-align:right;">${fmtUSD(p.marketValue)}</td></tr>`
+      `<tr><td style="padding:5px 10px;border-bottom:1px solid #1e293b;font-weight:bold;color:#e2e8f0;">${escapeHtml(p.symbol)}</td><td style="padding:5px 10px;border-bottom:1px solid #1e293b;color:#94a3b8;">${escapeHtml(p.name)}</td><td style="padding:5px 10px;border-bottom:1px solid #1e293b;text-align:right;">${fmtPct(p.weight, 1)}</td><td style="padding:5px 10px;border-bottom:1px solid #1e293b;text-align:right;">${fmtUSD(p.marketValue)}</td></tr>`
     ).join("");
 
     const methodRows = methods.map((m) => {
@@ -124,7 +158,7 @@ export async function POST(req: NextRequest) {
       sectionsHTML += `<div class="card"><h2>Stress Testing</h2><p class="sub">${report.stress.filter((s) => s.breachesVar).length}/${report.stress.length} breach VaR</p><div class="chart-box"><svg width="100%" height="${report.stress.length * 28 + 10}" viewBox="0 0 480 ${report.stress.length * 28 + 10}">${stressBars}</svg></div></div>`;
     if (sections.includes("decomposition")) {
       const dRows = report.decomposition.perAsset.sort((a, b) => b.componentVar - a.componentVar).map((a) =>
-        `<tr><td style="padding:5px 10px;font-weight:bold;">${a.symbol}</td><td style="padding:5px 10px;text-align:right;">${fmtUSD(a.componentVar)}</td><td style="padding:5px 10px;text-align:right;">${fmtPct(a.componentShare, 1)}</td></tr>`
+        `<tr><td style="padding:5px 10px;font-weight:bold;">${escapeHtml(a.symbol)}</td><td style="padding:5px 10px;text-align:right;">${fmtUSD(a.componentVar)}</td><td style="padding:5px 10px;text-align:right;">${fmtPct(a.componentShare, 1)}</td></tr>`
       ).join("");
       sectionsHTML += `<div class="card"><h2>Risk Decomposition</h2><table class="tbl"><tr><th>Asset</th><th>Component VaR</th><th>Share</th></tr>${dRows}</table></div>`;
     }
@@ -137,15 +171,15 @@ export async function POST(req: NextRequest) {
 
     let interpHTML = "";
     if (config.includeInterpretation && interpretation) {
-      interpHTML = `<div class="card"><h2>AI Interpretation</h2><div class="grid2"><div class="interp" style="border-left:4px solid #22c55e;"><h3 style="color:#22c55e;">Strengths</h3><ul>${interpretation.pros.map((p: string) => `<li>${p}</li>`).join("")}</ul></div><div class="interp" style="border-left:4px solid #f43f5e;"><h3 style="color:#f43f5e;">Risk Concerns</h3><ul>${interpretation.cons.map((c: string) => `<li>${c}</li>`).join("")}</ul></div></div><div class="interp" style="border-left:4px solid #3b82f6;margin-top:10px;"><h3 style="color:#3b82f6;">Recommendations</h3><ul>${interpretation.recommendations.map((r: string) => `<li>${r}</li>`).join("")}</ul></div></div>`;
+      interpHTML = `<div class="card"><h2>AI Interpretation</h2><div class="grid2"><div class="interp" style="border-left:4px solid #22c55e;"><h3 style="color:#22c55e;">Strengths</h3><ul>${interpretation.pros.map((p: string) => `<li>${escapeHtml(p)}</li>`).join("")}</ul></div><div class="interp" style="border-left:4px solid #f43f5e;"><h3 style="color:#f43f5e;">Risk Concerns</h3><ul>${interpretation.cons.map((c: string) => `<li>${escapeHtml(c)}</li>`).join("")}</ul></div></div><div class="interp" style="border-left:4px solid #3b82f6;margin-top:10px;"><h3 style="color:#3b82f6;">Recommendations</h3><ul>${interpretation.recommendations.map((r: string) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div></div>`;
     }
 
     let summaryHTML = "";
     if (config.includeSummary && interpretation?.summary)
-      summaryHTML = `<div class="card summary"><h2>Executive Summary</h2><p style="color:#e2e8f0;font-size:13px;line-height:1.6;">${interpretation.summary}</p></div>`;
+      summaryHTML = `<div class="card summary"><h2>Executive Summary</h2><p style="color:#e2e8f0;font-size:13px;line-height:1.6;">${escapeHtml(interpretation.summary)}</p></div>`;
 
     const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>VaR Report — ${portfolioName}</title>
+<html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer"><title>VaR Report — ${safePortfolioName}</title>
 <style>
 @media print{.no-print{display:none!important}body{background:#fff!important}.card{break-inside:avoid}}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -180,17 +214,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .footer{text-align:center;font-size:10px;color:#475569;padding:16px 0;border-top:1px solid #1e293b;margin-top:16px}
 </style></head>
 <body>
-<div class="no-print"><button onclick="window.print()">📄 Print / Save as PDF</button></div>
+<div class="no-print">Use your browser’s Print command to save this report as PDF.</div>
 <div class="cover">
 <h1>VaR Risk Report</h1>
-<div class="sub">${portfolioName}</div>
+<div class="sub">${safePortfolioName}</div>
 <div class="meta"><div>Total Value: <span style="color:#cbd5e1">${fmtUSD(report.portfolio.totalValue)}</span></div><div>Positions: <span style="color:#cbd5e1">${report.portfolio.positions.length}</span></div><div>Confidence: <span style="color:#cbd5e1">${(config.confidence * 100).toFixed(0)}%</span></div><div>Horizon: <span style="color:#cbd5e1">${config.horizon}d</span></div><div>Date: <span style="color:#cbd5e1">${new Date().toISOString().slice(0, 10)}</span></div></div>
 </div>
 <div class="kpis">
 <div class="kpi"><div class="l">Value at Risk</div><div class="v" style="color:#f43f5e;">${fmtUSD(report.results.historical.var)}</div><div class="s">${fmtPct(report.results.historical.varPct)} of book</div></div>
 <div class="kpi"><div class="l">Expected Shortfall</div><div class="v" style="color:#eab308;">${fmtUSD(report.results.historical.es)}</div><div class="s">${(report.results.historical.es / report.results.historical.var).toFixed(2)}x VaR</div></div>
 <div class="kpi"><div class="l">Regulatory Capital</div><div class="v" style="color:#a855f7;">${fmtUSD(report.liquidity.regulatoryCapital)}</div><div class="s">${fmtPct(report.liquidity.regulatoryCapital / report.portfolio.totalValue, 1)} of book</div></div>
-<div class="kpi"><div class="l">Worst Stress</div><div class="v" style="color:#f43f5e;">${fmtUSD(worstStress.pnl)}</div><div class="s">${worstStress.scenario.name}</div></div>
+<div class="kpi"><div class="l">Worst Stress</div><div class="v" style="color:#f43f5e;">${fmtUSD(worstStress.pnl)}</div><div class="s">${escapeHtml(worstStress.scenario.name)}</div></div>
 </div>
 <div class="card"><h2>Portfolio Holdings</h2><table class="tbl"><tr><th>Symbol</th><th>Name</th><th style="text-align:right;">Weight</th><th style="text-align:right;">Market Value</th></tr>${posRows}</table></div>
 ${sectionsHTML}
@@ -202,13 +236,13 @@ ${summaryHTML}
     // Return the HTML directly — no file saving needed
     return new NextResponse(html, {
       headers: {
-        "Content-Type": "text/html",
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Disposition": "attachment; filename=VaR-Report.html",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "unknown error" },
-      { status: 500 }
-    );
+    return apiErrorResponse(err);
   }
 }

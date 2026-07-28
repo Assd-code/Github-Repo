@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRealMarketDataCached } from "@/lib/var/cache";
+import { MAX_SYMBOLS, apiErrorResponse, validateSymbol } from "@/lib/var/api-validation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
   const symbolsParam = q.get("symbols") || "";
   const symbols = symbolsParam
     .split(",")
-    .map((s) => s.trim().toUpperCase())
+    .map((s) => s.trim())
     .filter(Boolean);
   if (symbols.length === 0) {
     return NextResponse.json(
@@ -19,7 +20,11 @@ export async function GET(req: NextRequest) {
     );
   }
   try {
-    const { market, summary } = await getRealMarketDataCached(symbols, 504);
+    if (symbols.length > MAX_SYMBOLS) {
+      return NextResponse.json({ ok: false, error: `symbols cannot exceed ${MAX_SYMBOLS} entries` }, { status: 400 });
+    }
+    const validatedSymbols = [...new Set(symbols.map((symbol) => validateSymbol(symbol)))];
+    const { market, summary } = await getRealMarketDataCached(validatedSymbols, 504);
     // Build a compact market series response for the frontend
     const lastRow = market.prices[market.prices.length - 1];
     const assets = market.assets.map((a, i) => ({
@@ -61,9 +66,6 @@ export async function GET(req: NextRequest) {
       dataSource: summary,
     });
   } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "unknown error" },
-      { status: 500 }
-    );
+    return apiErrorResponse(err);
   }
 }
