@@ -116,6 +116,7 @@ async function fetchYahooSymbol(symbol: string, range: string = "2y"): Promise<F
         "User-Agent": "Mozilla/5.0 (compatible; VaRLab/1.0)",
         "Accept": "application/json",
       },
+      signal: AbortSignal.timeout(6_000),
       // Next.js fetch — no cache to keep it simple (we have our own cache)
     });
 

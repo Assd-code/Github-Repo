@@ -130,8 +130,8 @@ function ensureDatabase() {
 
   if (!fs.existsSync(databasePath)) {
     const seedPath = app.isPackaged
-      ? path.join(process.resourcesPath, "db", "custom.db")
-      : path.join(__dirname, "..", "db", "custom.db");
+      ? path.join(process.resourcesPath, "db", "seed.db")
+      : path.join(__dirname, "..", "db", "seed.db");
 
     if (!fs.existsSync(seedPath)) {
       throw new Error(`The bundled database is missing: ${seedPath}`);
@@ -165,6 +165,7 @@ async function startNextServer() {
       ...process.env,
       DATABASE_URL: `file:${databasePath}`,
       VARLAB_API_TOKEN: serverToken,
+      VARLAB_DESKTOP_SERVER: "1",
       NODE_PATH: [
         app.isPackaged ? path.join(projectDirectory, "node_modules") : null,
         app.isPackaged ? path.join(process.resourcesPath, "node_modules") : null,

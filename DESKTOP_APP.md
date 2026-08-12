@@ -41,7 +41,7 @@ bun run electron
 - **Windows**: `release/VaR Lab Setup 1.0.0.exe` (standard installer)
 
 ### Notes
-- The app uses SQLite with a writable database stored under the user's VaR Lab application-data directory; `db/custom.db` is used only to seed a first run
+- The app uses SQLite with a writable database stored under the user's VaR Lab application-data directory; the empty `db/seed.db` is copied only on first run
 - Startup diagnostics are written to `VaR Lab/logs/main.log` in the user's application-data directory
 - Market data is fetched from Yahoo Finance (free, no API key)
 - The app runs fully offline once built (except for live market data fetching)
