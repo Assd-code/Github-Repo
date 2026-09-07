@@ -1,34 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMarketData } from "@/lib/var/cache";
 import { DEFAULT_PORTFOLIO } from "@/lib/var/engine";
-import { PortfolioConfig, Methodology } from "@/lib/var/types";
+import { Methodology } from "@/lib/var/types";
 import { runWhatIf, whatIfPreset } from "@/lib/var/whatif";
+import { parsePortfolioSearchParams } from "@/lib/var/api-validation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-function parsePortfolio(q: URLSearchParams): PortfolioConfig {
-  const posParam = q.get("positions");
-  const total = Number(q.get("totalValue") ?? DEFAULT_PORTFOLIO.totalValue);
-  let positions = DEFAULT_PORTFOLIO.positions;
-  if (posParam) {
-    try {
-      positions = posParam
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((pair) => {
-          const [symbol, qty] = pair.split(":");
-          return { symbol: symbol.toUpperCase(), quantity: Number(qty) };
-        })
-        .filter((p) => p.symbol && Number.isFinite(p.quantity) && p.quantity !== 0);
-      if (positions.length === 0) positions = DEFAULT_PORTFOLIO.positions;
-    } catch {
-      positions = DEFAULT_PORTFOLIO.positions;
-    }
-  }
-  return { positions, totalValue: total };
-}
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
@@ -36,7 +14,7 @@ export async function GET(req: NextRequest) {
   const horizon = Math.min(20, Math.max(1, Math.round(Number(q.get("horizon") ?? 1))));
   const seed = Number(q.get("seed") ?? 42);
   const days = Math.min(1000, Math.max(250, Number(q.get("days") ?? 504)));
-  const portfolio = parsePortfolio(q);
+  const portfolio = parsePortfolioSearchParams(q, DEFAULT_PORTFOLIO);
 
   // Parse target weights from query: weights=SPX:0.3,AAPL:0.2,...
   // Or use a preset: preset=risk-off

@@ -32,7 +32,7 @@ export function backtest(
 
   // Test window = the last `testDays` days.
   const startIdx = Math.max(window, totalDays - testDays);
-  const exceptions = [];
+  const exceptions: BacktestResult["exceptions"] = [];
   let exceptionCount = 0;
   let exceptionMagSum = 0;
 

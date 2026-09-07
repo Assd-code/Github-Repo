@@ -81,11 +81,6 @@ export function CustomReportPanel({
     );
   };
 
-  const positionsStr = React.useMemo(
-    () => controls.positions.map((p) => `${p.symbol}:${p.quantity}`).join(","),
-    [controls.positions]
-  );
-
   const handleGenerate = async () => {
     setGenerating(true);
     setResult(null);
@@ -107,6 +102,10 @@ export function CustomReportPanel({
         }),
       });
 
+      if (!res.ok) {
+        const error = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(error?.error || "Report generation failed");
+      }
       const html = await res.text();
 
       // Download as an HTML file that the user opens in their browser
@@ -323,7 +322,7 @@ export function CustomReportPanel({
                 <div>
                   <div className="text-sm font-semibold text-emerald-500">Report downloaded!</div>
                   <div className="text-[11px] text-muted-foreground mt-1">
-                    Open the downloaded HTML file in your browser, then click the "📄 Print / Save as PDF" button to save it as a PDF.
+                    Open the downloaded HTML file, then use your browser’s Print command to save it as a PDF.
                   </div>
                 </div>
               </div>
@@ -336,7 +335,7 @@ export function CustomReportPanel({
             <div className="space-y-3">
               <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-center">
                 <div className="text-sm font-semibold text-rose-500">Report Generation Failed</div>
-                <div className="text-[11px] text-muted-foreground mt-1">{result.error}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{result?.error || "Unknown error"}</div>
               </div>
               <Button variant="outline" size="sm" className="w-full" onClick={() => setView("config")}>
                 ← Back to Configuration

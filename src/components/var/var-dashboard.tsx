@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertCircle, BookOpen, LayoutDashboard, BarChart3, Microscope, SlidersHorizontal } from "lucide-react";
+import { Activity, AlertCircle, LayoutDashboard, BarChart3, Microscope, SlidersHorizontal, Radar } from "lucide-react";
 
 // All imports are static — no dynamic imports, no lazy loading.
 import { MethodologyComparison } from "./methodology-comparison";
@@ -40,11 +40,13 @@ import { WhatIfSimulatorPanel } from "./whatif-simulator-panel";
 import { OptimizerPanel } from "./optimizer-panel";
 import { SavedPortfoliosPanel } from "./saved-portfolios-panel";
 import { McPathsPanel } from "./mc-paths-panel";
+import { MarketScreenerPanel } from "./market-screener-panel";
 
-type TabId = "overview" | "analysis" | "advanced" | "tools";
+type TabId = "overview" | "screener" | "analysis" | "advanced" | "tools";
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "screener", label: "Market Screener", icon: Radar },
   { id: "analysis", label: "Analysis", icon: BarChart3 },
   { id: "advanced", label: "Advanced", icon: Microscope },
   { id: "tools", label: "Tools & Reports", icon: SlidersHorizontal },
@@ -183,6 +185,13 @@ export function VarDashboard() {
                   <UtilizationHeatmapPanel />
                 </div>
               </div>
+            )}
+
+            {activeTab === "screener" && (
+              <MarketScreenerPanel
+                defaultConfidence={controls.confidence}
+                defaultHorizon={controls.horizon}
+              />
             )}
 
             {activeTab === "advanced" && (

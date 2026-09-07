@@ -2,68 +2,65 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMarketData } from "@/lib/var/cache";
 import { DEFAULT_PORTFOLIO } from "@/lib/var/engine";
 import { computeLimitMonitoring, listLimits, upsertLimit, deleteLimit } from "@/lib/var/limits";
-import { PortfolioConfig, Methodology } from "@/lib/var/types";
+import {
+  apiErrorResponse,
+  validateId,
+  validateMethodology,
+  validateNumber,
+  validatePortfolio,
+  validateText,
+} from "@/lib/var/api-validation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function parsePortfolio(q: URLSearchParams): PortfolioConfig {
-  const posParam = q.get("positions");
-  const total = Number(q.get("totalValue") ?? DEFAULT_PORTFOLIO.totalValue);
-  let positions = DEFAULT_PORTFOLIO.positions;
-  if (posParam) {
-    try {
-      positions = posParam.split(",").map((s) => s.trim()).filter(Boolean).map((pair) => {
-        const [symbol, qty] = pair.split(":");
-        return { symbol: symbol.toUpperCase(), quantity: Number(qty) };
-      }).filter((p) => p.symbol && Number.isFinite(p.quantity) && p.quantity !== 0);
-      if (positions.length === 0) positions = DEFAULT_PORTFOLIO.positions;
-    } catch { positions = DEFAULT_PORTFOLIO.positions; }
-  }
-  return { positions, totalValue: total };
-}
-
-export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams;
-  const seed = Number(q.get("seed") ?? 42);
-  const days = Math.min(1000, Math.max(250, Number(q.get("days") ?? 504)));
-  const portfolio = parsePortfolio(q);
-  try {
-    const market = getMarketData(days, seed);
-    const monitoring = await computeLimitMonitoring(market, portfolio);
-    return NextResponse.json({ ok: true, monitoring });
-  } catch (err) {
-    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "unknown error" }, { status: 500 });
-  }
+export async function GET() {
+  return NextResponse.json(
+    { ok: false, error: "Use POST for limit monitoring" },
+    { status: 405, headers: { Allow: "POST" } },
+  );
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    if (body.action === "list") {
+    const body = await req.json() as Record<string, unknown>;
+    const action = validateText(body.action, "action", { required: true, max: 20 });
+    if (action === "list") {
       const limits = await listLimits();
       return NextResponse.json({ ok: true, limits });
     }
-    if (body.action === "delete" && body.id) {
-      await deleteLimit(body.id);
+    if (action === "monitor") {
+      const seed = validateNumber(body.seed ?? 42, "seed", { min: -2_147_483_648, max: 2_147_483_647, integer: true });
+      const days = validateNumber(body.days ?? 504, "days", { min: 250, max: 1000, integer: true });
+      const portfolio = validatePortfolio({ positions: body.positions, totalValue: body.totalValue }, DEFAULT_PORTFOLIO);
+      const market = getMarketData(days, seed);
+      const monitoring = await computeLimitMonitoring(market, portfolio);
+      return NextResponse.json({ ok: true, monitoring });
+    }
+    if (action === "delete" && body.id) {
+      await deleteLimit(validateId(body.id));
       return NextResponse.json({ ok: true });
     }
-    if (body.action === "upsert") {
+    if (action === "upsert") {
+      const limitUsd = validateNumber(body.limitUsd, "limitUsd", { min: 1, max: 1_000_000_000_000_000 });
+      const softLimitUsd = body.softLimitUsd != null
+        ? validateNumber(body.softLimitUsd, "softLimitUsd", { min: 0, max: limitUsd })
+        : null;
       const limit = await upsertLimit({
-        id: body.id,
-        scope: body.scope || "portfolio:default",
-        label: body.label,
-        method: body.method as Methodology,
-        confidence: Number(body.confidence),
-        horizon: Number(body.horizon),
-        limitUsd: Number(body.limitUsd),
-        softLimitUsd: body.softLimitUsd != null ? Number(body.softLimitUsd) : null,
+        id: body.id ? validateId(body.id) : undefined,
+        scope: validateText(body.scope ?? "portfolio:default", "scope", { required: true, max: 120 }),
+        label: validateText(body.label, "label", { required: true, max: 120 }),
+        method: validateMethodology(body.method),
+        confidence: validateNumber(body.confidence, "confidence", { min: 0.9, max: 0.999 }),
+        horizon: validateNumber(body.horizon, "horizon", { min: 1, max: 250, integer: true }),
+        limitUsd,
+        softLimitUsd,
         active: body.active !== false,
       });
       return NextResponse.json({ ok: true, limit });
     }
     return NextResponse.json({ ok: false, error: "unknown action" }, { status: 400 });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "unknown error" }, { status: 500 });
+    return apiErrorResponse(err);
   }
 }

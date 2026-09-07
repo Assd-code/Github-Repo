@@ -36,19 +36,26 @@ const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 // Heuristic: classify asset class from Yahoo instrumentType + symbol.
 function classifyAsset(symbol: string, instrumentType?: string, exchange?: string): AssetClass {
   const sym = symbol.toUpperCase();
-  // FX pairs: 6-letter symbols ending in USD/X, or known FX
-  if (sym.length === 6 && (sym.endsWith("USD") || sym.endsWith("X"))) return "fx";
-  if (["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD"].includes(sym)) return "fx";
-  if (sym.includes("=")) return "fx"; // Yahoo FX like EURUSD=X
   // Crypto: Yahoo uses -USD suffix or BTC/ETH
   if (sym.endsWith("-USD") || ["BTC", "ETH", "BTCUSD", "ETHUSD"].includes(sym)) return "crypto";
+  // Yahoo futures use =F; check before the =X currency convention.
+  if (sym.endsWith("=F")) return "commodity";
   // Commodity ETFs / futures
-  const commodityEtfs = ["GLD", "SLV", "GOLD", "USO", "UNG", "DBC", "UNG", "PALL", "PLAT"];
+  const commodityEtfs = [
+    "GLD", "SLV", "GOLD", "USO", "UNG", "DBC", "DBA", "PDBC", "CPER",
+    "PALL", "PLAT", "URA", "WOOD",
+  ];
   if (commodityEtfs.includes(sym)) return "commodity";
   if (exchange === "CMEX" || exchange === "NYM") return "commodity";
   // Rate / bond ETFs
-  const rateEtfs = ["TLT", "IEF", "SHY", "AGG", "BND", "TBT", "TMF", "VGIT", "GOVT"];
+  const rateEtfs = [
+    "TLT", "IEF", "SHY", "AGG", "BND", "TBT", "TMF", "VGIT", "GOVT",
+    "TIP", "LQD", "HYG", "JNK", "EMB", "BKLN", "MUB", "^TNX", "^FVX", "^IRX",
+  ];
   if (rateEtfs.includes(sym)) return "rate";
+  // FX pairs: Yahoo uses =X, while legacy VaR Lab symbols may omit the suffix.
+  if (sym.endsWith("=X")) return "fx";
+  if (["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD"].includes(sym)) return "fx";
   // Default by instrumentType
   if (instrumentType === "CURRENCY") return "fx";
   if (instrumentType === "CRYPTOCURRENCY") return "crypto";
@@ -109,6 +116,7 @@ async function fetchYahooSymbol(symbol: string, range: string = "2y"): Promise<F
         "User-Agent": "Mozilla/5.0 (compatible; VaRLab/1.0)",
         "Accept": "application/json",
       },
+      signal: AbortSignal.timeout(6_000),
       // Next.js fetch — no cache to keep it simple (we have our own cache)
     });
 
@@ -167,7 +175,8 @@ async function fetchYahooSymbol(symbol: string, range: string = "2y"): Promise<F
 // Fetch a symbol with caching.
 async function fetchSymbolCached(symbol: string, range: string = "2y"): Promise<FetchResult> {
   const sym = symbol.toUpperCase();
-  const cached = symbolCache.get(sym);
+  const cacheKey = `${sym}:${range}`;
+  const cached = symbolCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return {
       ok: true,
@@ -178,19 +187,35 @@ async function fetchSymbolCached(symbol: string, range: string = "2y"): Promise<
   }
   const result = await fetchYahooSymbol(sym, range);
   if (result.ok && result.meta && result.prices && result.dates) {
-    symbolCache.set(sym, {
+    symbolCache.set(cacheKey, {
       meta: result.meta,
       prices: result.prices,
       dates: result.dates,
       fetchedAt: Date.now(),
     });
     // Bound cache size
-    if (symbolCache.size > 50) {
+    if (symbolCache.size > 1000) {
       const firstKey = symbolCache.keys().next().value;
       if (firstKey) symbolCache.delete(firstKey);
     }
   }
   return result;
+}
+
+export interface MarketAssetHistoryResult {
+  ok: boolean;
+  meta?: AssetMeta;
+  prices?: number[];
+  dates?: string[];
+  error?: string;
+}
+
+/** Fetch one asset's real price history without applying a synthetic fallback. */
+export async function getMarketAssetHistory(
+  symbol: string,
+  range: string = "2y",
+): Promise<MarketAssetHistoryResult> {
+  return fetchSymbolCached(symbol, range);
 }
 
 export interface RealDataFetchSummary {

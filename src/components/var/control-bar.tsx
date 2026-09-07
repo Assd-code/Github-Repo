@@ -690,11 +690,21 @@ export function ControlBar({
       <Button
         variant="outline"
         className="h-9"
-        onClick={() => {
+        onClick={async () => {
           const posStr = controls.positions.map((p) => `${p.symbol}:${p.quantity}`).join(",");
           const baseUrl = useRealData ? "/api/var/real-report" : "/api/var/report";
           const url = `${baseUrl}?confidence=${controls.confidence}&horizon=${controls.horizon}&method=${controls.method}&seed=${controls.seed}&totalValue=${controls.totalValue}&positions=${encodeURIComponent(posStr)}`;
-          window.open(url, "_blank");
+          const response = await fetch(url);
+          if (!response.ok) return;
+          const blob = new Blob([await response.text()], { type: "application/json" });
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = objectUrl;
+          link.download = `VaR-Report-${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(objectUrl);
         }}
       >
         <Download className="h-4 w-4 mr-2" />
