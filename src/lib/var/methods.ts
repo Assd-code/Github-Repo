@@ -314,32 +314,34 @@ function fitGPD(exceedances: number[]): { xi: number; sigma: number } | null {
   const n = exceedances.length;
   if (n < 10) return null;
   const sorted = [...exceedances].sort((a, b) => a - b);
-  // Use the Zhang-Stephens profile likelihood approach.
+  // Zhang-Stephens empirical-Bayes estimate of theta = -xi/sigma:
+  // candidate thetas around 1/x_max, scaled by the first quartile.
   const priorBS = 3;
   const m = 30 + Math.floor(Math.sqrt(n));
-  const theta = new Array(m);
-  let j = 0;
-  for (let i = 1; i <= m; i++) {
-    theta[j++] = 1 / sorted[n - i] + (1 - Math.sqrt(m / (i - 0.5))) / (priorBS * sorted[0]);
+  const xMax = sorted[n - 1];
+  const xQ1 = sorted[Math.max(0, Math.floor(n / 4 + 0.5) - 1)];
+  if (!(xMax > 0) || !(xQ1 > 0)) return null;
+  const theta: number[] = [];
+  for (let j = 1; j <= m; j++) {
+    theta.push(1 / xMax + (1 - Math.sqrt(m / (j - 0.5))) / (priorBS * xQ1));
   }
-  // log-likelihood at each theta
-  const k = n;
-  const l = new Array(m);
-  for (let i = 0; i < m; i++) {
-    const th = theta[i];
+  // profile log-likelihood at each theta: n * (log(-theta/k) - k - 1),
+  // where k = mean(log(1 - theta * x)).
+  const l = theta.map((th) => {
     let s = 0;
-    for (let v = 0; v < k; v++) s += Math.log1p(-th * sorted[v]);
-    s = -s - k * Math.log(-s / (k * th));
-    l[i] = s;
-  }
-  // weights
-  const maxL = Math.max(...l);
-  const w = l.map((li) => Math.exp(li - maxL));
+    for (let v = 0; v < n; v++) s += Math.log1p(-th * sorted[v]);
+    const k = s / n;
+    return n * (Math.log(-th / k) - k - 1);
+  });
+  // posterior weights (softmax of the log-likelihoods)
+  const maxL = Math.max(...l.filter((li) => Number.isFinite(li)));
+  if (!Number.isFinite(maxL)) return null;
+  const w = l.map((li) => (Number.isFinite(li) ? Math.exp(li - maxL) : 0));
   const wSum = sum(w);
   const thHat = sum(w.map((wi, i) => wi * theta[i])) / wSum;
-  const sHat = -(sum(sorted.map((x) => Math.log1p(-thHat * x)))) / (k * thHat);
-  const xi = -thHat * sHat;
-  const sigma = sHat;
+  const xi = mean(sorted.map((x) => Math.log1p(-thHat * x)));
+  const sigma = -xi / thHat;
+  if (!Number.isFinite(xi) || !(sigma > 0)) return null;
   return { xi, sigma };
 }
 
