@@ -100,7 +100,7 @@ export function parametricVar(
   for (let i = 0; i < N; i++) {
     samples.push(muH + sigH * randNormal(rng));
   }
-  return buildResult(
+  const res = buildResult(
     "parametric",
     samples,
     confidence,
@@ -109,6 +109,18 @@ export function parametricVar(
     undefined,
     Date.now() - t0
   );
+  // Report the closed-form normal VaR/ES rather than the sampled quantile, so
+  // the headline numbers carry no simulation noise. The samples are for charts.
+  //   VaR = z·σ − μ,   ES = σ·φ(z)/(1−c) − μ
+  const z = normInv(confidence);
+  const phiZ = Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);
+  const varFraction = Math.max(0, z * sigH - muH);
+  const esFraction = Math.max(varFraction, (sigH * phiZ) / (1 - confidence) - muH);
+  res.var = varFraction * portfolio.totalValue;
+  res.varPct = varFraction;
+  res.es = esFraction * portfolio.totalValue;
+  res.esPct = esFraction;
+  return res;
 }
 
 /** Historical simulation VaR using overlapping horizon returns. */
