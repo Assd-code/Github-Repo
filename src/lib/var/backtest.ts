@@ -4,8 +4,9 @@
 //   - Kupiec POF (unconditional coverage) likelihood-ratio test
 //   - Christoffersen independence & conditional coverage tests
 //   - Basel traffic-light zone classification
+//   - Acerbi–Székely Z2 Expected Shortfall backtest
 
-import { MarketData, PortfolioConfig, BacktestResult, Methodology } from "./types";
+import { MarketData, PortfolioConfig, BacktestResult, BacktestException, Methodology } from "./types";
 import { chiSquarePValue } from "./rng";
 import { runVar } from "./methods";
 import { portfolioWeights } from "./market-data";
@@ -32,9 +33,11 @@ export function backtest(
 
   // Test window = the last `testDays` days.
   const startIdx = Math.max(window, totalDays - testDays);
-  const exceptions = [];
+  const exceptions: BacktestException[] = [];
   let exceptionCount = 0;
   let exceptionMagSum = 0;
+  // Σ L_t / ES_t over exception days, for the Acerbi–Székely Z2 statistic.
+  let esRatioSum = 0;
 
   for (let t = startIdx; t < totalDays; t++) {
     // Trailing window sub-market.
@@ -81,6 +84,7 @@ export function backtest(
     if (isException) {
       exceptionCount++;
       exceptionMagSum += Math.abs(realizedPnl) - varValue;
+      if (res.es > 0) esRatioSum += -realizedPnl / res.es;
     }
     exceptions.push({
       date: dates[t],
@@ -97,17 +101,14 @@ export function backtest(
 
   // ---- Kupiec POF (unconditional coverage) ----
   // LR = -2 * ln[ (1-p)^(N-x) p^x / (1-x/N)^(N-x) (x/N)^x ]
+  // Evaluated in log form so long test windows don't underflow.
   const p = 1 - confidence;
-  let kupiecLR = 0;
-  if (x === 0) {
-    kupiecLR = -2 * Math.log(Math.pow(1 - p, N));
-  } else if (x === N) {
-    kupiecLR = -2 * Math.log(Math.pow(p, N));
-  } else {
-    const num = Math.pow(1 - p, N - x) * Math.pow(p, x);
-    const den = Math.pow(1 - x / N, N - x) * Math.pow(x / N, x);
-    kupiecLR = -2 * Math.log(num / den);
-  }
+  const xlogy = (a: number, b: number) => (a === 0 ? 0 : a * Math.log(b));
+  const kupiecLR =
+    N > 0
+      ? -2 *
+        (xlogy(N - x, 1 - p) + xlogy(x, p) - xlogy(N - x, 1 - x / N) - xlogy(x, x / N))
+      : 0;
   const kupiecP = chiSquarePValue(kupiecLR, 1);
 
   // ---- Christoffersen independence test ----
@@ -140,20 +141,16 @@ export function backtest(
   const ccP = chiSquarePValue(ccLR, 2);
 
   // ---- Basel traffic light (250-day, 99%) ----
-  // Green <=4, Yellow 5-9, Red >=10 (scaled for window size).
-  const scaledX = (x / Math.max(1, N)) * 250;
-  let zone: "green" | "yellow" | "red";
-  let multiplier: number;
-  if (scaledX <= 4) {
-    zone = "green";
-    multiplier = 3.0;
-  } else if (scaledX <= 9) {
-    zone = "yellow";
-    multiplier = 3.4 + 0.3 * (scaledX - 5); // 3.4 -> 4.6
-  } else {
-    zone = "red";
-    multiplier = 4.0;
-  }
+  // Green 0-4, Yellow 5-9, Red >=10 exceptions (count scaled to 250 days).
+  // Multiplier = 3 + plus factor from the Basel Committee table.
+  const scaledX = Math.round((x / Math.max(1, N)) * 250);
+  const { zone, multiplier } = baselZone(scaledX);
+
+  // ---- Acerbi–Székely Z2 ES test ----
+  // Critical values are the simulated thresholds from Acerbi & Székely (2014)
+  // for α = 2.5%; they are a reasonable guide at other confidence levels.
+  const z2 = N > 0 ? esRatioSum / (N * p) - 1 : 0;
+  const esZone: "green" | "yellow" | "red" = z2 > 1.8 ? "red" : z2 > 0.7 ? "yellow" : "green";
 
   return {
     methodology,
@@ -174,5 +171,19 @@ export function backtest(
     zone,
     zoneMultiplier: multiplier,
     avgExceptionMagnitude: x > 0 ? exceptionMagSum / x : 0,
+    esBacktest: { z2, zone: esZone, reject: esZone === "red" },
   };
+}
+
+/** Basel traffic-light zone and capital multiplier for a 250-day exception count. */
+export function baselZone(exceptions: number): {
+  zone: "green" | "yellow" | "red";
+  multiplier: number;
+} {
+  if (exceptions <= 4) return { zone: "green", multiplier: 3.0 };
+  if (exceptions <= 9) {
+    const plus = [0.4, 0.5, 0.65, 0.75, 0.85][exceptions - 5];
+    return { zone: "yellow", multiplier: 3 + plus };
+  }
+  return { zone: "red", multiplier: 4.0 };
 }

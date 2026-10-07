@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "start": "next start -p 3000",
     "lint": "eslint .",
+    "test": "bun test tests",
     "db:push": "bunx prisma db push",
     "db:generate": "bunx prisma generate",
     "electron": "bunx electron electron/main.js",

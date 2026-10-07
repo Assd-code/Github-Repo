@@ -11,6 +11,7 @@ import { computeVarTrend } from "./trend";
 import { computeLiquidityAdjustedVar } from "./liquidity";
 import { computeReverseStress } from "./reverse-stress";
 import { computePnlAttribution } from "./pla";
+import { computeStressedVar } from "./stressed-var";
 
 export const DEFAULT_PORTFOLIO: PortfolioConfig = {
   totalValue: 10_000_000,
@@ -106,6 +107,7 @@ export function buildFullReport(
   const liquidity = computeLiquidityAdjustedVar(market, portfolio, 0.975);
   const reverseStress = computeReverseStress(market, portfolio, 0.20);
   const pnlAttribution = computePnlAttribution(market, portfolio, 60);
+  const stressedVar = computeStressedVar(market, portfolio, confidence, horizon, 250);
 
   const positions = portfolio.positions.map((p, idx) => {
     const assetIdx = market.assets.findIndex((a) => a.symbol === p.symbol);
@@ -138,6 +140,7 @@ export function buildFullReport(
     liquidity,
     reverseStress,
     pnlAttribution,
+    stressedVar,
     generatedAt: new Date().toISOString(),
   };
 }

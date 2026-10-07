@@ -141,6 +141,17 @@ export interface BacktestResult {
   zoneMultiplier: number;
   /** average magnitude of exceptions (USD) */
   avgExceptionMagnitude: number;
+  /**
+   * Acerbi–Székely (2014) Z2 Expected Shortfall backtest.
+   * Z2 = Σ L_t·1{exception} / (T·α·ES_t) − 1. Under a correct ES model E[Z2] = 0;
+   * positive values mean ES is understated.
+   */
+  esBacktest?: {
+    z2: number;
+    /** approximate critical values (α = 2.5%): 0.70 at 95% and 1.80 at 99.99% */
+    zone: "green" | "yellow" | "red";
+    reject: boolean;
+  };
 }
 
 export interface DecompositionResult {
@@ -159,7 +170,15 @@ export interface DecompositionResult {
     incrementalVar: number;
     /** standalone VaR of the asset in isolation */
     standaloneVar: number;
+    /**
+     * Component Expected Shortfall (Euler allocation, historical simulation):
+     * the position's average loss in the portfolio's tail scenarios.
+     * Sums exactly to `totalEs`.
+     */
+    componentEs?: number;
   }[];
+  /** historical-simulation Expected Shortfall that `componentEs` sums to */
+  totalEs?: number;
 }
 
 export interface StressScenario {
@@ -200,7 +219,32 @@ export interface FullReport {
   liquidity: LiquidityAdjustedVar;
   reverseStress: ReverseStressResult;
   pnlAttribution: PnlAttribution;
+  stressedVar?: StressedVarResult;
   generatedAt: string;
+}
+
+/**
+ * Stressed VaR (Basel 2.5): historical-simulation VaR of the *current*
+ * portfolio calibrated to the most adverse contiguous window in the history.
+ */
+export interface StressedVarResult {
+  confidence: number;
+  horizon: number;
+  /** length of each calibration window (trading days) */
+  windowDays: number;
+  /** stressed VaR / ES (USD, positive losses) */
+  var: number;
+  es: number;
+  /** VaR / ES over the most recent window, for comparison */
+  currentVar: number;
+  currentEs: number;
+  /** sVaR / current VaR */
+  ratio: number;
+  /** start and end dates of the stress window */
+  windowStart: string;
+  windowEnd: string;
+  /** rolling 1-window VaR series (end date, USD), downsampled for charting */
+  rolling: { date: string; var: number }[];
 }
 
 // ---- New feature types (round 2) ----

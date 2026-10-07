@@ -92,6 +92,7 @@ export function DecompositionPanel({ report }: { report: FullReport }) {
               <TableHead className="h-8 text-xs text-right">Share</TableHead>
               <TableHead className="h-8 text-xs text-right">Incremental VaR</TableHead>
               <TableHead className="h-8 text-xs text-right">Standalone VaR</TableHead>
+              <TableHead className="h-8 text-xs text-right">Component ES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -114,6 +115,7 @@ export function DecompositionPanel({ report }: { report: FullReport }) {
                     {fmtUSD(a.incrementalVar)}
                   </TableCell>
                   <TableCell className="py-2 text-xs text-right tabular-nums text-muted-foreground">{fmtUSD(a.standaloneVar)}</TableCell>
+                  <TableCell className="py-2 text-xs text-right tabular-nums">{a.componentEs !== undefined ? fmtUSD(a.componentEs) : "—"}</TableCell>
                 </TableRow>
               ))}
           </TableBody>
@@ -123,7 +125,9 @@ export function DecompositionPanel({ report }: { report: FullReport }) {
           <span className="font-medium text-foreground">Marginal VaR</span> = ∂VaR/∂wᵢ (sensitivity of total risk to a small weight increase).{" "}
           <span className="font-medium text-foreground">Component VaR</span> = wᵢ × marginal (sums to total VaR).{" "}
           <span className="font-medium text-foreground">Incremental VaR</span> = VaR(full) − VaR(without asset, rescaled) — negative values mark diversifiers.{" "}
-          <span className="font-medium text-foreground">Standalone VaR</span> = the asset held alone at its market value.
+          <span className="font-medium text-foreground">Standalone VaR</span> = the asset held alone at its market value.{" "}
+          <span className="font-medium text-foreground">Component ES</span> = the position&apos;s average loss in the portfolio&apos;s historical tail scenarios (sums to historical ES
+          {d.totalEs !== undefined ? <> of {fmtUSD(d.totalEs)}</> : null}).
         </p>
       </CardContent>
     </Card>

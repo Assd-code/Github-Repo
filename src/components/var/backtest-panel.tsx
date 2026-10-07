@@ -118,9 +118,24 @@ export function BacktestPanel({
           <MiniStat label="Avg Exception Size" value={fmtUSD(bt.avgExceptionMagnitude)} target="excess over VaR" />
         </div>
 
+        {bt.esBacktest && (
+          <div className="rounded-md border bg-muted/30 px-2.5 py-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-foreground">Expected Shortfall test (Acerbi–Székely Z2)</span>
+              <Badge variant={bt.esBacktest.reject ? "destructive" : "secondary"} className="h-5 text-[10px]">
+                {bt.esBacktest.zone.toUpperCase()}
+              </Badge>
+            </div>
+            <div className="text-sm font-semibold tabular-nums mt-1">Z2 = {bt.esBacktest.z2.toFixed(2)}</div>
+            <div className="text-[10px] text-muted-foreground mt-1 leading-tight">
+              Checks the size of losses beyond VaR, not just their count. 0 means ES is well calibrated; above 0.70 is a warning and above 1.80 rejects (approximate critical values).
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-2 text-xs">
           <ZoneBand label="GREEN" range="0–4" mult="3.0×" active={bt.zone === "green"} className="border-emerald-500/40 bg-emerald-500/5 text-emerald-600" />
-          <ZoneBand label="YELLOW" range="5–9" mult="3.4–4.0×" active={bt.zone === "yellow"} className="border-amber-500/40 bg-amber-500/5 text-amber-600" />
+          <ZoneBand label="YELLOW" range="5–9" mult="3.4–3.85×" active={bt.zone === "yellow"} className="border-amber-500/40 bg-amber-500/5 text-amber-600" />
           <ZoneBand label="RED" range="≥10" mult="4.0×" active={bt.zone === "red"} className="border-rose-500/40 bg-rose-500/5 text-rose-600" />
         </div>
       </CardContent>

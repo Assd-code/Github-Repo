@@ -16,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { AlertOctagon, CheckCircle2 } from "lucide-react";
 import type { FullReport } from "@/lib/var/types";
-import { fmtUSD, fmtPct } from "@/lib/format";
+import { fmtUSD, fmtPct, fmtDate } from "@/lib/format";
 
 export function StressPanel({ report }: { report: FullReport }) {
   const varRef = report.results.historical.var;
@@ -74,6 +74,20 @@ export function StressPanel({ report }: { report: FullReport }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
+        {report.stressedVar && (
+          <div className="rounded-md border bg-muted/20 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium">Stressed VaR (worst {report.stressedVar.windowDays}-day window)</span>
+              <span className="text-xs font-semibold tabular-nums text-rose-500">
+                {fmtUSD(report.stressedVar.var)} · {report.stressedVar.ratio.toFixed(2)}× current
+              </span>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Historical VaR of today&apos;s book calibrated to {fmtDate(report.stressedVar.windowStart)} – {fmtDate(report.stressedVar.windowEnd)}.
+              Current-window VaR {fmtUSD(report.stressedVar.currentVar)}; stressed ES {fmtUSD(report.stressedVar.es)}.
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           {report.stress.map((s) => (
             <div key={s.scenario.id} className="flex items-start gap-3 rounded-md border bg-muted/20 px-3 py-2">
